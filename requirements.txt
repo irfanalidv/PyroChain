@@ -12,6 +12,10 @@ Pillow>=8.0.0
 opencv-python>=4.5.0
 datasets>=2.0.0
 
+# Text processing and sentiment analysis
+textblob>=0.17.0
+nltk>=3.8.0
+
 # Vector databases and embeddings
 chromadb>=0.4.0
 sentence-transformers>=2.2.0

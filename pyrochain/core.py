@@ -17,7 +17,7 @@ from .processors import MultimodalProcessor
 class PyroChainConfig:
     """Configuration for PyroChain pipeline."""
 
-    model_name: str = "google/gemma-2b"
+    model_name: str = "microsoft/DialoGPT-small"
     adapter_rank: int = 16
     max_length: int = 512
     device: str = "auto"
