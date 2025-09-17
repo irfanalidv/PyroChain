@@ -1,0 +1,190 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyrochain"
+dynamic = ["version"]
+description = "PyTorch + LangChain for Agentic Feature Engineering"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Irfan Ali"}
+]
+maintainers = [
+    {name = "Irfan Ali"}
+]
+keywords = [
+    "pytorch", "langchain", "feature-engineering", "machine-learning",
+    "multimodal", "agents", "llm", "adapters", "ecommerce"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "torch>=2.0.0",
+    "transformers>=4.30.0",
+    "langchain>=0.1.0",
+    "langchain-community>=0.0.20",
+    "langchain-experimental>=0.0.40",
+    "numpy>=1.21.0",
+    "pandas>=1.3.0",
+    "Pillow>=8.0.0",
+    "opencv-python>=4.5.0",
+    "datasets>=2.0.0",
+    "chromadb>=0.4.0",
+    "sentence-transformers>=2.2.0",
+    "faiss-cpu>=1.7.0",
+    "redis>=4.0.0",
+    "pydantic>=2.0.0",
+    "tqdm>=4.60.0",
+    "python-dotenv>=0.19.0",
+    "click>=8.0.0",
+    "rich>=12.0.0",
+    "scikit-learn>=1.0.0",
+    "matplotlib>=3.5.0",
+    "seaborn>=0.11.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
+    "black>=21.0",
+    "flake8>=3.8",
+    "mypy>=0.800",
+    "pre-commit>=2.0",
+    "jupyter>=1.0.0",
+    "ipykernel>=6.0.0",
+]
+docs = [
+    "sphinx>=4.0",
+    "sphinx-rtd-theme>=1.0",
+    "myst-parser>=0.15",
+    "sphinx-autodoc-typehints>=1.12.0",
+]
+gpu = [
+    "torch-audio>=2.0.0",
+    "torchvision>=0.15.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/irfanalidv/PyroChain"
+Documentation = "https://github.com/irfanalidv/PyroChain#readme"
+Repository = "https://github.com/irfanalidv/PyroChain.git"
+"Bug Tracker" = "https://github.com/irfanalidv/PyroChain/issues"
+Changelog = "https://github.com/irfanalidv/PyroChain/blob/main/CHANGELOG.md"
+
+[project.scripts]
+pyrochain = "pyrochain.cli:main"
+
+[tool.setuptools]
+packages = ["pyrochain", "pyrochain.adapters", "pyrochain.agents", "pyrochain.chains", "pyrochain.processors", "pyrochain.utils"]
+
+[tool.setuptools.package-data]
+pyrochain = ["*.yaml", "*.yml", "*.json"]
+
+[tool.setuptools_scm]
+write_to = "pyrochain/_version.py"
+
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["pyrochain"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "transformers.*",
+    "langchain.*",
+    "chromadb.*",
+    "faiss.*",
+    "sklearn.*",
+    "cv2.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--tb=short",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = ["pyrochain"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/.*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
