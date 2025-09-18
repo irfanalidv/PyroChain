@@ -4,7 +4,7 @@
 
 [![GitHub](https://img.shields.io/github/license/irfanalidv/PyroChain)](https://github.com/irfanalidv/PyroChain/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/pyrochain)](https://pypi.org/project/pyrochain/)
-[![Downloads](https://img.shields.io/pypi/dm/pyrochain)](https://pypi.org/project/pyrochain/)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/pyrochain?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/pyrochain)
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-red)](https://pytorch.org/)
 [![LangChain](https://img.shields.io/badge/LangChain-0.1%2B-green)](https://langchain.com/)
