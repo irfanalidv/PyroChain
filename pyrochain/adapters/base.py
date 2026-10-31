@@ -2,9 +2,9 @@
 Base adapter class for lightweight LLM fine-tuning.
 """
 
-import torch
 from abc import ABC, abstractmethod
-from typing import Dict
+
+import torch
 from transformers import AutoModel, AutoTokenizer
 
 
@@ -24,7 +24,7 @@ class BaseAdapter(ABC):
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = AutoModel.from_pretrained(
             self.model_name,
-            torch_dtype=torch.float16 if self.device.type == "cuda" else torch.float32,
+            dtype=torch.float16 if self.device.type == "cuda" else torch.float32,
         ).to(self.device)
 
         # Add padding token if not present
@@ -32,14 +32,12 @@ class BaseAdapter(ABC):
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
     @abstractmethod
-    def forward(
-        self, input_ids: torch.Tensor, attention_mask: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
         """Forward pass through the adapter."""
         pass
 
     @abstractmethod
-    def train_step(self, batch: Dict[str, torch.Tensor]) -> Dict[str, float]:
+    def train_step(self, batch: dict[str, torch.Tensor]) -> dict[str, float]:
         """Single training step."""
         pass
 
@@ -53,7 +51,7 @@ class BaseAdapter(ABC):
         """Load adapter weights."""
         pass
 
-    def encode_text(self, text: str) -> Dict[str, torch.Tensor]:
+    def encode_text(self, text: str) -> dict[str, torch.Tensor]:
         """Encode text using the tokenizer."""
         encoding = self.tokenizer(
             text, return_tensors="pt", padding=True, truncation=True, max_length=512
@@ -68,6 +66,19 @@ class BaseAdapter(ABC):
             # Use mean pooling of last hidden states
             embeddings = outputs.last_hidden_state.mean(dim=1)
         return embeddings
+
+    def _trainable_modules(self) -> list:
+        return [m for m in (self.model, getattr(self, "lora_layers", None)) if m is not None]
+
+    def train(self, mode: bool = True) -> "BaseAdapter":
+        """Put the base model and adapter layers in training (or eval) mode."""
+        for module in self._trainable_modules():
+            module.train(mode)
+        return self
+
+    def eval(self) -> "BaseAdapter":
+        """Put the base model and adapter layers in evaluation mode."""
+        return self.train(False)
 
     def freeze_base_model(self):
         """Freeze the base model parameters."""

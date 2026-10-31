@@ -1,287 +1,198 @@
+<div align="center">
+
 # PyroChain 🔥
 
-**Intelligent Feature Engineering with AI Agents**
+**Intelligent feature engineering with AI agents: PyTorch + LangChain for multimodal data.**
 
-[![GitHub](https://img.shields.io/github/license/irfanalidv/PyroChain)](https://github.com/irfanalidv/PyroChain/blob/main/LICENSE)
-[![PyPI](https://img.shields.io/pypi/v/pyrochain)](https://pypi.org/project/pyrochain/)
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/pyrochain?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/pyrochain)
-[![Python](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-red)](https://pytorch.org/)
-[![LangChain](https://img.shields.io/badge/LangChain-0.1%2B-green)](https://langchain.com/)
+[![PyPI version](https://img.shields.io/pypi/v/pyrochain.svg)](https://pypi.org/project/pyrochain/)
+[![Python versions](https://img.shields.io/pypi/pyversions/pyrochain.svg)](https://pypi.org/project/pyrochain/)
+[![Tests](https://github.com/irfanalidv/PyroChain/actions/workflows/tests.yml/badge.svg)](https://github.com/irfanalidv/PyroChain/actions/workflows/tests.yml)
+[![PyPI Downloads](https://static.pepy.tech/badge/pyrochain)](https://pepy.tech/projects/pyrochain)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/irfanalidv/PyroChain/blob/main/LICENSE)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.1%2B-red)](https://pytorch.org/)
+[![LangChain](https://img.shields.io/badge/LangChain--core-0.3%2B-green)](https://python.langchain.com/)
 
-PyroChain combines PyTorch's deep learning capabilities with LangChain's agentic AI to automate feature extraction from complex, multimodal data. AI agents collaborate to understand, process, and extract meaningful features from text, images, and structured data.
+</div>
 
-## 🎯 What Problem Does PyroChain Solve?
+---
 
-**Traditional Feature Engineering is Hard:**
+PyroChain combines PyTorch and Hugging Face Transformers with LangChain message memory to turn
+raw records (text, images, and structured fields) into feature tensors for machine-learning
+models. A feature agent extracts features, a validation agent scores them and asks for refinement
+when they fall below a threshold, and a lightweight LoRA adapter can be trained on your own text.
+
+## 🎯 What problem does PyroChain solve?
+
+**Traditional feature engineering is hard:**
 
 - Manual feature extraction is time-consuming and error-prone
 - Different data types require different approaches
 - Domain expertise is needed to create meaningful features
-- Features become outdated as data patterns change
 
-**PyroChain Makes It Easy:**
+**PyroChain gives you one pipeline for it:**
 
-- AI agents automatically extract relevant features from any data type
-- Collaborative agents validate and refine features using chain-of-thought reasoning
-- Learns from your data to improve feature quality over time
-- Works seamlessly with existing ML pipelines
+- One call turns a record (or a batch) with text, images, and numbers into feature tensors
+- A validation agent scores every result (completeness, quality, relevance) and triggers refinement
+- A LoRA adapter on top of a frozen open model can be fine-tuned on your domain text
+- Plain PyTorch tensors out, so it plugs into existing ML pipelines
 
-## 🚀 Key Features
+## 🚀 Key features
 
-- **🤖 AI Agents**: Intelligent agents that collaborate to extract, validate, and refine features
-- **📊 Multimodal Processing**: Handle text, images, and structured data in one pipeline
-- **⚡ Lightweight & Fast**: Efficient LoRA adapters that train quickly on your data
-- **🧠 Memory & Learning**: Agents remember past decisions and improve over time
-- **🛒 E-commerce Ready**: Built-in tools for product recommendations and customer analysis
-- **🏗️ Production Ready**: Scalable architecture designed for real-world applications
-
-## 💡 Use Cases
-
-**E-commerce & Retail:**
-
-- Product recommendation systems
-- Customer sentiment analysis
-- Inventory optimization
-- Price prediction and analysis
-
-**Content & Media:**
-
-- Text classification and tagging
-- Image content analysis
-- Content recommendation
-- Automated content moderation
-
-**Business Intelligence:**
-
-- Customer behavior analysis
-- Market trend detection
-- Risk assessment
-- Automated reporting
+- **🤖 Feature and validation agents**: LangChain tools plus a ReAct-style reasoning trace, with
+  conversation memory saved and restored as JSON
+- **📊 Multimodal processing**: text embeddings from the base model's hidden states, image
+  features (colour statistics, edges, size) via Pillow/OpenCV, fused by `concat`, `add`,
+  `multiply`, or `attention`
+- **⚡ Lightweight LoRA adapters**: the base model stays frozen; only low-rank layers train
+  (about 12k trainable parameters at rank 8 on DialoGPT-small)
+- **🛒 E-commerce helpers**: `EcommerceFeatureExtractor` and `ProductAnalyzer` (price, brand,
+  review, inventory features; product similarity and clustering)
+- **🖥️ CLI**: `pyrochain extract | train | predict | ecommerce | version`
+- **📈 Metrics and visualisation**: `FeatureMetrics`, plus `FeatureVisualizer` (with the `viz` extra)
 
 ## 🛠️ Installation
 
-### Quick Install
+```bash
+pip install pyrochain               # core
+pip install "pyrochain[viz]"        # + matplotlib / seaborn / pandas for FeatureVisualizer
+```
+
+Requires Python 3.10+. For a CPU-only PyTorch (smaller download), install it first:
 
 ```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 pip install pyrochain
 ```
 
-### From Source
+The first run downloads the default model (`microsoft/DialoGPT-small`, about 350 MB) and a
+tokenizer from the Hugging Face Hub. Any Hub model with a `last_hidden_state` output works via
+`PyroChainConfig(model_name=...)`.
 
-```bash
-git clone https://github.com/irfanalidv/PyroChain.git
-cd PyroChain
-pip install -e .
-```
-
-### Requirements
-
-- Python 3.8+
-- PyTorch 2.0+
-- LangChain 0.1+
-- Transformers 4.20+
-
-## 🚀 Quick Start
-
-### Basic Usage
-
-```python
-from pyrochain import PyroChain
-from transformers import AutoTokenizer, AutoModel
-from textblob import TextBlob
-import torch
-from datasets import load_dataset
-
-# Load real transformer model and tokenizer
-model_name = "microsoft/DialoGPT-small"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModel.from_pretrained(model_name)
-
-# Initialize PyroChain with transformer model
-pyrochain = PyroChain()
-
-# Load REAL data from IMDB dataset
-print("📚 Loading real IMDB dataset...")
-dataset = load_dataset("imdb", split="train[:4]")  # Load first 4 real reviews
-
-# Extract features from REAL dataset with TextBlob sentiment analysis
-for i, sample in enumerate(dataset):
-    text = sample["text"]
-    label = sample["label"]  # 0 = negative, 1 = positive
-
-    # Use TextBlob for real sentiment analysis
-    blob = TextBlob(text)
-    sentiment_score = (blob.sentiment.polarity + 1) / 2  # Convert to 0-1 scale
-
-    data = {
-        "text": text,
-        "title": f"IMDB Review {i+1}",
-        "rating": 5 if label == 1 else 1,
-        "category": "movie_review"
-    }
-
-    features = pyrochain.extract_features(
-        data,
-        "Extract features for sentiment analysis using TextBlob and transformer model"
-    )
-
-    print(f"Text: {text[:100]}...")
-    print(f"Real Label: {label} | TextBlob Sentiment: {sentiment_score:.3f}")
-    print(f"Features: {len(features['features'])}")
-    print("---")
-```
-
-### Real Data Example
-
-```bash
-# Run the complete real data example
-cd examples
-python main_example.py
-```
-
-**What you'll see:**
-
-```
-🔥 PyroChain Real Data Demo - 100% Real Analysis
-============================================================
-
-🚀 Real Data Feature Extraction Example
-==================================================
-📚 Loading real IMDB dataset using transformer models...
-📥 Downloading real IMDB dataset...
-✅ Loaded 5 real IMDB samples using transformer model
-
-📝 Processing: IMDB Review 1
-Text: I rented I AM CURIOUS-YELLOW from my video store because of all the controversy that surrounded it w...
-Rating: 1/5 (Real IMDB Label: 0 = Negative)
-
-✅ Extracted 2 feature sets
-📊 Modalities: ['text']
-⏱️ Processing time: 0.025s
-📊 Data source: real_imdb_dataset
-
-🔍 sentiment_analysis:
-   sentiment_score: 0.57
-   polarity: 0.14
-   subjectivity: 0.85
-   positive_words: 16
-   negative_words: 4
-   total_sentiment_words: 20
-   confidence: 0.95
-
-🔍 text_features:
-   word_count: 288
-   char_count: 1640
-   sentence_count: 14
-   avg_word_length: 4.7
-   avg_sentence_length: 20.57
-   readability_score: 0.0
-   topic_keywords: ['movie', 'review', 'story', 'direction', 'visuals', 'drama']
-
-🛒 Real Data E-commerce Analysis
-==================================================
-
-🔍 Analyzing: Wireless Bluetooth Headphones
-💰 Price: $199.99
-⭐ Rating: 4.5/5 (128 votes)
-✅ Recommendation score: 0.91
-📊 Features extracted: 2
-
-🏆 Top Recommendations:
-1. Wireless Bluetooth Headphones - Score: 0.91
-2. Organic Cotton T-Shirt - Score: 0.815
-```
-
-## 🏗️ How It Works
-
-1. **Data Ingestion**: Accepts multimodal data (text, images, structured)
-2. **Agent Processing**: AI agents analyze data using chain-of-thought reasoning
-3. **Feature Extraction**: Collaborative agents extract relevant features
-4. **Validation**: Agents validate and refine features through discussion
-5. **Output**: Clean, structured features ready for ML models
-
-## ⚙️ Configuration
+## 🚀 Quick start
 
 ```python
 from pyrochain import PyroChain, PyroChainConfig
-from transformers import AutoTokenizer, AutoModel
-import torch
 
-# Load real transformer model for e-commerce analysis
-model_name = "microsoft/DialoGPT-small"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModel.from_pretrained(model_name)
+chain = PyroChain(PyroChainConfig(device="cpu"))  # default model: microsoft/DialoGPT-small
 
-# Real e-commerce product data
-products = [
-    {
-        "id": "prod_001",
-        "title": "Wireless Bluetooth Headphones",
-        "description": "High-quality wireless headphones with noise cancellation and 30-hour battery life. Perfect for music lovers and professionals.",
-        "price": 199.99,
-        "category": "electronics",
-        "rating": 4.5
-    },
-    {
-        "id": "prod_002",
-        "title": "Organic Cotton T-Shirt",
-        "description": "Comfortable organic cotton t-shirt in various colors and sizes. Made from 100% organic cotton, eco-friendly and sustainable.",
-        "price": 29.99,
-        "category": "clothing",
-        "rating": 4.2
-    }
-]
+product = {
+    "title": "Wireless Bluetooth Headphones",
+    "description": "Noise cancellation and 30-hour battery life.",
+    "price": 199.99,
+    "category": "electronics",
+}
+result = chain.extract_features(product, "Extract features for product recommendation")
 
-# Configure for e-commerce with transformer model
-config = PyroChainConfig(
-    task_type="ecommerce",           # Task type: "general", "ecommerce", "custom"
-    enable_agents=True,              # Enable AI agent collaboration
-    enable_training=False,           # Enable model training
-    max_length=512,                  # Maximum input length
-    learning_rate=1e-4,              # Learning rate for training
-    num_epochs=3,                    # Number of training epochs
-    device="auto"                    # Device: "auto", "cpu", "cuda"
-)
-
-pyrochain = PyroChain(config=config)
-
-# Process real product data with transformer analysis
-for product in products:
-    features = pyrochain.extract_features(
-        product,
-        "Extract features for product recommendation using transformer model"
-    )
-    print(f"Product: {product['title']} - Features: {len(features['features'])}")
-    print(f"Price: ${product['price']} - Rating: {product['rating']}/5")
+features = result["features"][0]
+print("modalities:", features["metadata"]["modalities"])
+print("text features:", tuple(features["text_features"].shape))
+print("validation score:", round(features["validation_score"], 2))
+print(features["validation_feedback"])
 ```
 
-## 📚 API Reference
+Output:
 
-### Core Classes
+```
+modalities: ['text']
+text features: (1, 768)
+validation score: 1.0
+Features passed validation with a score of 1.00
+```
 
-- **`PyroChain`**: Main library class for feature extraction
-- **`PyroChainConfig`**: Configuration class for customizing behavior
-- **`LoRAAdapter`**: Lightweight adapter for efficient model fine-tuning
-- **`MultimodalProcessor`**: Handles text, image, and structured data processing
+Pass a list of dicts to process a batch, and add a PIL image under `image` for multimodal
+features. This script is in [`examples/quickstart.py`](https://github.com/irfanalidv/PyroChain/blob/main/examples/quickstart.py).
 
-### Key Methods
+### Fine-tune the LoRA adapter
 
-- **`extract_features(data, task_description)`**: Extract features from data
-- **`train(training_data, task_description)`**: Train custom agents
-- **`evaluate(test_data)`**: Evaluate model performance
-- **`save_model(path)`**: Save trained model
-- **`load_model(path)`**: Load pre-trained model
+```python
+data = [{"text": "Great headphones with long battery life."},
+        {"text": "Comfortable organic cotton t-shirt."}] * 4
+out = chain.train_adapter(data, "product language modelling", epochs=3, learning_rate=1e-3)
+print([round(h["train_loss"], 2) for h in out["training_history"]])  # loss per epoch
+chain.save_model("my_model")   # adapter weights + agent memory
+chain.load_model("my_model")
+```
+
+On DialoGPT-small this run took the training loss from 9.08 to 6.41 over the 3 epochs.
+
+### Command line
+
+```bash
+echo '{"title": "Organic Cotton T-Shirt", "price": 29.99}' > item.json
+pyrochain extract --input-file item.json --task "product features" --output-file out.json --device cpu
+pyrochain train --training-file train.json --task "domain LM" --epochs 3 --output-dir my_model
+pyrochain predict --model-dir my_model --input-file item.json --task "product features"
+pyrochain version
+```
+
+Every command accepts `--model` and `--device`. Tensors are written to JSON as nested lists.
+
+## 💡 Use cases
+
+**E-commerce and retail:** product recommendation features, product similarity and clustering,
+price and inventory features, review sentiment signals.
+
+**Content and media:** text classification and tagging features, image content descriptors,
+content recommendation.
+
+**Business intelligence:** feature tables for customer behaviour, trend, or risk models.
+
+## 🏗️ How it works
+
+1. **Data ingestion**: a dict (or list of dicts) with text fields, images, and scalars
+2. **Processing**: `MultimodalProcessor` embeds text with the base model and extracts image features
+3. **Feature agent**: runs its extraction tools and records a reasoning trace in memory
+4. **Validation agent**: scores completeness, quality, and relevance against `validation_threshold`;
+   below it, the feature chain runs again with the feedback
+5. **Output**: `{"features": [...], "metadata": {...}}` with PyTorch tensors
+
+## ⚙️ Configuration
+
+`PyroChainConfig` fields (all optional):
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `model_name` | `"microsoft/DialoGPT-small"` | Hugging Face model used for embeddings and the adapter |
+| `adapter_rank` | `16` | LoRA rank |
+| `max_length` | `512` | Max tokens per text |
+| `device` | `"auto"` | `auto` (CUDA, then MPS, then CPU), `cpu`, `cuda`, `mps` |
+| `memory_type` | `"conversation_buffer"` | Agent memory type |
+| `enable_validation` | `True` | Run the validation agent |
+| `validation_threshold` | `0.8` | Minimum score before refinement is triggered |
+
+No API keys are needed: everything runs locally on open models. Standard Hugging Face variables
+such as `HF_HOME` and `HF_HUB_OFFLINE` apply.
+
+## 📚 API reference
+
+- **`PyroChain(config)`**: `extract_features(data, task_description, validate=True)`,
+  `train_adapter(training_data, task_description, epochs, learning_rate)`, `save_model(path)`,
+  `load_model(path)`
+- **`PyroChainConfig`**: configuration dataclass (table above)
+- **`LightweightAdapter` / `LoRAAdapter`**: `get_embeddings(text)`, `encode_text(text)`,
+  `train(...)`, `save(path)`, `load(path)`, `get_trainable_parameters()`
+- **`MultimodalProcessor`**: `process(record)` returns text, image, and fused features
+- **`FeatureAgent` / `ValidationAgent`** and **`FeatureExtractionChain` / `ValidationChain`**
+- **`pyrochain.utils`**: `EcommerceFeatureExtractor`, `ProductAnalyzer`, `ProductData`,
+  `FeatureMetrics`, `FeatureVisualizer` (viz extra)
+
+The built-in agents run their tools deterministically and do not call a generative LLM; the ReAct
+prompt templates are exposed (`agent.agent`) if you want to drive them with your own LangChain model.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](https://github.com/irfanalidv/PyroChain/blob/main/CONTRIBUTING.md) for details.
+Contributions are welcome! See the [Contributing Guide](https://github.com/irfanalidv/PyroChain/blob/main/CONTRIBUTING.md)
+and [Code of Conduct](https://github.com/irfanalidv/PyroChain/blob/main/CODE_OF_CONDUCT.md).
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+```bash
+git clone https://github.com/irfanalidv/PyroChain.git && cd PyroChain
+pip install -e ".[dev]"
+ruff check . && black --check . && pytest   # tests use a tiny offline model, no downloads
+```
+
+Security issues: see [SECURITY.md](https://github.com/irfanalidv/PyroChain/blob/main/SECURITY.md).
+Release notes: [CHANGELOG.md](https://github.com/irfanalidv/PyroChain/blob/main/CHANGELOG.md).
 
 ## 📄 License
 
@@ -290,17 +201,13 @@ This project is licensed under the MIT License - see the [LICENSE](https://githu
 ## 🙏 Acknowledgments
 
 - [PyTorch](https://pytorch.org/) for deep learning capabilities
-- [LangChain](https://langchain.com/) for agentic AI framework
+- [LangChain](https://python.langchain.com/) for messages, tools, and prompts
 - [Hugging Face](https://huggingface.co/) for transformer models
-- [Sentence Transformers](https://www.sbert.net/) for text embeddings
 
 ## 📞 Support
 
-**Need help?** We're here to support you:
-
 - 📚 [Documentation](https://github.com/irfanalidv/PyroChain#readme)
 - 🐛 [Report Issues](https://github.com/irfanalidv/PyroChain/issues)
-- 💡 [Feature Requests](https://github.com/irfanalidv/PyroChain/discussions)
 - 📧 [Contact](https://github.com/irfanalidv)
 
 ---

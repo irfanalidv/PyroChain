@@ -2,10 +2,11 @@
 Core PyroChain functionality for orchestrating feature engineering pipelines.
 """
 
-import torch
-from typing import Dict, List, Any, Optional, Union
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
+
+import torch
 
 from .adapters import LightweightAdapter
 from .agents import FeatureAgent, ValidationAgent
@@ -34,7 +35,7 @@ class PyroChain:
     for automated feature extraction with agentic validation.
     """
 
-    def __init__(self, config: Optional[PyroChainConfig] = None):
+    def __init__(self, config: PyroChainConfig | None = None):
         """Initialize PyroChain with configuration."""
         self.config = config or PyroChainConfig()
         self.device = self._setup_device()
@@ -75,9 +76,7 @@ class PyroChain:
         )
 
         # Initialize agents
-        self.feature_agent = FeatureAgent(
-            adapter=self.adapter, processor=self.processor
-        )
+        self.feature_agent = FeatureAgent(adapter=self.adapter, processor=self.processor)
 
         if self.config.enable_validation:
             self.validation_agent = ValidationAgent(
@@ -98,10 +97,10 @@ class PyroChain:
 
     def extract_features(
         self,
-        data: Union[Dict[str, Any], List[Dict[str, Any]]],
+        data: dict[str, Any] | list[dict[str, Any]],
         task_description: str,
         validate: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Extract features from multimodal data using agentic processing.
 
@@ -163,11 +162,11 @@ class PyroChain:
 
     def train_adapter(
         self,
-        training_data: List[Dict[str, Any]],
+        training_data: list[dict[str, Any]],
         task_description: str,
         epochs: int = 3,
         learning_rate: float = 1e-4,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Train the lightweight adapter on task-specific data.
 
@@ -187,7 +186,7 @@ class PyroChain:
             learning_rate=learning_rate,
         )
 
-    def save_model(self, path: Union[str, Path]):
+    def save_model(self, path: str | Path):
         """Save the trained model and adapters."""
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
@@ -202,7 +201,7 @@ class PyroChain:
         if self.validation_chain:
             self.validation_chain.save_memory(path / "validation_memory")
 
-    def load_model(self, path: Union[str, Path]):
+    def load_model(self, path: str | Path):
         """Load a previously saved model and adapters."""
         path = Path(path)
 

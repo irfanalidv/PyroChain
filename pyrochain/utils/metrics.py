@@ -5,19 +5,14 @@ Provides evaluation metrics for feature extraction,
 validation, and model performance.
 """
 
-import torch
+from typing import Any
+
 import numpy as np
-from typing import Dict, Any, List, Optional, Union, Tuple
+import torch
 from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    mean_squared_error,
     mean_absolute_error,
-    r2_score,
+    mean_squared_error,
     silhouette_score,
-    adjusted_rand_score,
 )
 
 
@@ -29,8 +24,8 @@ class FeatureMetrics:
         pass
 
     def calculate_feature_quality_metrics(
-        self, features: torch.Tensor, ground_truth: Optional[torch.Tensor] = None
-    ) -> Dict[str, float]:
+        self, features: torch.Tensor, ground_truth: torch.Tensor | None = None
+    ) -> dict[str, float]:
         """Calculate quality metrics for extracted features."""
         if isinstance(features, torch.Tensor):
             features = features.detach().cpu().numpy()
@@ -69,9 +64,7 @@ class FeatureMetrics:
 
             # Correlation
             correlation = np.corrcoef(features_flat, ground_truth_flat)[0, 1]
-            metrics["correlation"] = (
-                float(correlation) if not np.isnan(correlation) else 0.0
-            )
+            metrics["correlation"] = float(correlation) if not np.isnan(correlation) else 0.0
 
             # Mean squared error
             mse = mean_squared_error(ground_truth_flat, features_flat)
@@ -85,7 +78,7 @@ class FeatureMetrics:
 
     def calculate_similarity_metrics(
         self, features1: torch.Tensor, features2: torch.Tensor
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Calculate similarity metrics between two feature sets."""
         if isinstance(features1, torch.Tensor):
             features1 = features1.detach().cpu().numpy()
@@ -124,9 +117,7 @@ class FeatureMetrics:
 
         # Pearson correlation
         correlation = np.corrcoef(features1, features2)[0, 1]
-        metrics["pearson_correlation"] = (
-            float(correlation) if not np.isnan(correlation) else 0.0
-        )
+        metrics["pearson_correlation"] = float(correlation) if not np.isnan(correlation) else 0.0
 
         # Jaccard similarity (for binary features)
         if np.all((features1 == 0) | (features1 == 1)) and np.all(
@@ -134,15 +125,13 @@ class FeatureMetrics:
         ):
             intersection = np.sum(features1 & features2)
             union = np.sum(features1 | features2)
-            metrics["jaccard_similarity"] = (
-                float(intersection / union) if union > 0 else 0.0
-            )
+            metrics["jaccard_similarity"] = float(intersection / union) if union > 0 else 0.0
 
         return metrics
 
     def calculate_validation_metrics(
-        self, validation_results: List[Dict[str, Any]]
-    ) -> Dict[str, float]:
+        self, validation_results: list[dict[str, Any]]
+    ) -> dict[str, float]:
         """Calculate metrics for validation results."""
         if not validation_results:
             return {}
@@ -161,23 +150,17 @@ class FeatureMetrics:
         # Validation rate
         valid_count = sum(is_valid)
         total_count = len(validation_results)
-        metrics["validation_rate"] = (
-            float(valid_count / total_count) if total_count > 0 else 0.0
-        )
+        metrics["validation_rate"] = float(valid_count / total_count) if total_count > 0 else 0.0
 
         # Score distribution
-        metrics["score_above_threshold"] = float(
-            np.sum(np.array(scores) > 0.8) / total_count
-        )
-        metrics["score_below_threshold"] = float(
-            np.sum(np.array(scores) < 0.5) / total_count
-        )
+        metrics["score_above_threshold"] = float(np.sum(np.array(scores) > 0.8) / total_count)
+        metrics["score_below_threshold"] = float(np.sum(np.array(scores) < 0.5) / total_count)
 
         return metrics
 
     def calculate_clustering_metrics(
-        self, features: torch.Tensor, cluster_labels: List[int]
-    ) -> Dict[str, float]:
+        self, features: torch.Tensor, cluster_labels: list[int]
+    ) -> dict[str, float]:
         """Calculate metrics for clustering results."""
         if isinstance(features, torch.Tensor):
             features = features.detach().cpu().numpy()
@@ -214,8 +197,8 @@ class FeatureMetrics:
         return metrics
 
     def calculate_training_metrics(
-        self, training_history: List[Dict[str, Any]]
-    ) -> Dict[str, float]:
+        self, training_history: list[dict[str, Any]]
+    ) -> dict[str, float]:
         """Calculate metrics for training history."""
         if not training_history:
             return {}
@@ -254,8 +237,8 @@ class FeatureMetrics:
         return metrics
 
     def calculate_ecommerce_metrics(
-        self, product_features: List[Dict[str, Any]]
-    ) -> Dict[str, float]:
+        self, product_features: list[dict[str, Any]]
+    ) -> dict[str, float]:
         """Calculate metrics specific to e-commerce features."""
         if not product_features:
             return {}
@@ -266,11 +249,7 @@ class FeatureMetrics:
         prices = []
         for features in product_features:
             if "ecommerce_features" in features:
-                price = (
-                    features["ecommerce_features"]
-                    .get("price_features", {})
-                    .get("price", 0)
-                )
+                price = features["ecommerce_features"].get("price_features", {}).get("price", 0)
                 if price > 0:
                     prices.append(price)
 
@@ -284,9 +263,7 @@ class FeatureMetrics:
         for features in product_features:
             if "ecommerce_features" in features:
                 category = (
-                    features["ecommerce_features"]
-                    .get("category_features", {})
-                    .get("category", "")
+                    features["ecommerce_features"].get("category_features", {}).get("category", "")
                 )
                 if category:
                     categories.append(category)
@@ -302,9 +279,7 @@ class FeatureMetrics:
         for features in product_features:
             if "ecommerce_features" in features:
                 avg_rating = (
-                    features["ecommerce_features"]
-                    .get("review_features", {})
-                    .get("avg_rating", 0)
+                    features["ecommerce_features"].get("review_features", {}).get("avg_rating", 0)
                 )
                 if avg_rating > 0:
                     review_scores.append(avg_rating)
@@ -336,32 +311,26 @@ class FeatureMetrics:
 
     def generate_comprehensive_report(
         self,
-        features: Dict[str, Any],
-        validation_results: Optional[List[Dict[str, Any]]] = None,
-        training_history: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        features: dict[str, Any],
+        validation_results: list[dict[str, Any]] | None = None,
+        training_history: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """Generate a comprehensive metrics report."""
         report = {}
 
         # Feature quality metrics
-        if "raw_features" in features and isinstance(
-            features["raw_features"], torch.Tensor
-        ):
+        if "raw_features" in features and isinstance(features["raw_features"], torch.Tensor):
             report["feature_quality"] = self.calculate_feature_quality_metrics(
                 features["raw_features"]
             )
 
         # Validation metrics
         if validation_results:
-            report["validation_metrics"] = self.calculate_validation_metrics(
-                validation_results
-            )
+            report["validation_metrics"] = self.calculate_validation_metrics(validation_results)
 
         # Training metrics
         if training_history:
-            report["training_metrics"] = self.calculate_training_metrics(
-                training_history
-            )
+            report["training_metrics"] = self.calculate_training_metrics(training_history)
 
         # E-commerce metrics
         if isinstance(features, list):

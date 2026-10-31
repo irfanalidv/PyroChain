@@ -5,12 +5,12 @@ Provides tools for visualizing extracted features,
 similarity matrices, and clustering results.
 """
 
+from typing import Any
+
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
+import seaborn as sns
 import torch
-from typing import Dict, Any, List, Optional, Tuple
-import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
@@ -18,7 +18,7 @@ from sklearn.manifold import TSNE
 class FeatureVisualizer:
     """Visualization utilities for PyroChain features."""
 
-    def __init__(self, figsize: Tuple[int, int] = (10, 8)):
+    def __init__(self, figsize: tuple[int, int] = (10, 8)):
         """Initialize the visualizer."""
         self.figsize = figsize
         plt.style.use("seaborn-v0_8")
@@ -27,7 +27,7 @@ class FeatureVisualizer:
         self,
         features: torch.Tensor,
         title: str = "Feature Distribution",
-        save_path: Optional[str] = None,
+        save_path: str | None = None,
     ) -> None:
         """Plot distribution of feature values."""
         if isinstance(features, torch.Tensor):
@@ -51,9 +51,9 @@ class FeatureVisualizer:
     def plot_similarity_matrix(
         self,
         similarity_matrix: np.ndarray,
-        labels: Optional[List[str]] = None,
+        labels: list[str] | None = None,
         title: str = "Similarity Matrix",
-        save_path: Optional[str] = None,
+        save_path: str | None = None,
     ) -> None:
         """Plot similarity matrix as heatmap."""
         plt.figure(figsize=self.figsize)
@@ -78,11 +78,11 @@ class FeatureVisualizer:
     def plot_feature_embedding(
         self,
         features: torch.Tensor,
-        labels: Optional[List[str]] = None,
+        labels: list[str] | None = None,
         method: str = "pca",
         n_components: int = 2,
         title: str = "Feature Embedding",
-        save_path: Optional[str] = None,
+        save_path: str | None = None,
     ) -> None:
         """Plot feature embeddings in 2D space."""
         if isinstance(features, torch.Tensor):
@@ -108,7 +108,7 @@ class FeatureVisualizer:
             colors = plt.cm.Set3(np.linspace(0, 1, len(unique_labels)))
 
             for i, label in enumerate(unique_labels):
-                mask = [l == label for l in labels]
+                mask = [lab == label for lab in labels]
                 plt.scatter(
                     embeddings[mask, 0],
                     embeddings[mask, 1],
@@ -132,9 +132,9 @@ class FeatureVisualizer:
     def plot_clustering_results(
         self,
         features: torch.Tensor,
-        cluster_labels: List[int],
+        cluster_labels: list[int],
         title: str = "Clustering Results",
-        save_path: Optional[str] = None,
+        save_path: str | None = None,
     ) -> None:
         """Plot clustering results."""
         if isinstance(features, torch.Tensor):
@@ -174,9 +174,9 @@ class FeatureVisualizer:
 
     def plot_feature_importance(
         self,
-        importance_scores: Dict[str, float],
+        importance_scores: dict[str, float],
         title: str = "Feature Importance",
-        save_path: Optional[str] = None,
+        save_path: str | None = None,
     ) -> None:
         """Plot feature importance scores."""
         features = list(importance_scores.keys())
@@ -214,12 +214,14 @@ class FeatureVisualizer:
 
     def plot_training_history(
         self,
-        history: List[Dict[str, Any]],
-        metrics: List[str] = ["train_loss", "val_loss"],
+        history: list[dict[str, Any]],
+        metrics: list[str] | None = None,
         title: str = "Training History",
-        save_path: Optional[str] = None,
+        save_path: str | None = None,
     ) -> None:
         """Plot training history."""
+        if metrics is None:
+            metrics = ["train_loss", "val_loss"]
         if not history:
             return
 
@@ -247,9 +249,9 @@ class FeatureVisualizer:
 
     def plot_validation_metrics(
         self,
-        validation_results: List[Dict[str, Any]],
+        validation_results: list[dict[str, Any]],
         title: str = "Validation Metrics",
-        save_path: Optional[str] = None,
+        save_path: str | None = None,
     ) -> None:
         """Plot validation metrics."""
         if not validation_results:
@@ -283,16 +285,12 @@ class FeatureVisualizer:
             plt.savefig(save_path, dpi=300, bbox_inches="tight")
         plt.show()
 
-    def create_feature_report(
-        self, features: Dict[str, Any], save_path: Optional[str] = None
-    ) -> None:
+    def create_feature_report(self, features: dict[str, Any], save_path: str | None = None) -> None:
         """Create a comprehensive feature report."""
         fig, axes = plt.subplots(2, 2, figsize=(15, 12))
 
         # Feature distribution
-        if "raw_features" in features and isinstance(
-            features["raw_features"], torch.Tensor
-        ):
+        if "raw_features" in features and isinstance(features["raw_features"], torch.Tensor):
             raw_features = features["raw_features"].detach().cpu().numpy()
             axes[0, 0].hist(raw_features.flatten(), bins=50, alpha=0.7)
             axes[0, 0].set_title("Raw Features Distribution")
@@ -320,9 +318,7 @@ class FeatureVisualizer:
             axes[1, 0].tick_params(axis="x", rotation=45)
 
         # Summary statistics
-        if "raw_features" in features and isinstance(
-            features["raw_features"], torch.Tensor
-        ):
+        if "raw_features" in features and isinstance(features["raw_features"], torch.Tensor):
             raw_features = features["raw_features"].detach().cpu().numpy()
             stats = {
                 "Mean": np.mean(raw_features),

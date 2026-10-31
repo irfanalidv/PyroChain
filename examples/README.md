@@ -1,5 +1,11 @@
 # PyroChain Examples
 
+- **`quickstart.py`**: uses the `pyrochain` library end to end (feature extraction with the default
+  open model). Start here: `python examples/quickstart.py`
+- **`main_example.py`**: a standalone real-data analysis demo (IMDB reviews via `datasets`,
+  TextBlob sentiment). It does not import `pyrochain` and needs extra packages:
+  `pip install datasets textblob nltk`
+
 This directory contains practical examples demonstrating PyroChain's capabilities with 100% real data analysis.
 
 ## 📁 Examples Overview

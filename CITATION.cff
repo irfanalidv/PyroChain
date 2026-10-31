@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "pyrochain"
+abstract: "PyTorch + LangChain for agentic multimodal feature engineering with LoRA adapters."
+authors:
+  - family-names: Ali
+    given-names: Irfan
+version: "0.2.0"
+date-released: "2026-10-31"
+license: MIT
+repository-code: "https://github.com/irfanalidv/PyroChain"
+url: "https://pypi.org/project/pyrochain/"

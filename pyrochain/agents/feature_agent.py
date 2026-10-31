@@ -2,9 +2,10 @@
 Feature extraction agent for PyroChain.
 """
 
-from typing import Dict, Any, List, Optional
-from langchain.agents import Tool, AgentType, initialize_agent
-from langchain.prompts import PromptTemplate
+from typing import Any
+
+from langchain_core.prompts import PromptTemplate
+from langchain_core.tools import Tool
 
 from .base import BaseAgent
 
@@ -28,7 +29,7 @@ class FeatureAgent(BaseAgent):
         """Initialize the feature extraction agent."""
         super().__init__(adapter, processor, memory_type, max_memory_size, **kwargs)
 
-    def _setup_tools(self) -> List[Tool]:
+    def _setup_tools(self) -> list[Tool]:
         """Setup tools for feature extraction."""
         tools = [
             Tool(
@@ -61,10 +62,11 @@ class FeatureAgent(BaseAgent):
 
     def _setup_agent(self):
         """Setup the feature extraction agent."""
-        prompt = PromptTemplate(
-            input_variables=["input", "agent_scratchpad", "chat_history"],
-            template="""You are a specialized feature extraction agent for PyroChain. 
-            Your task is to extract relevant features from multimodal data (text and images) 
+        # The ReAct prompt is kept for use with a real LLM; the built-in executor runs the
+        # tools deterministically (see SequentialToolExecutor).
+        return PromptTemplate.from_template(
+            """You are a specialized feature extraction agent for PyroChain.
+            Your task is to extract relevant features from multimodal data (text and images)
             for machine learning tasks.
 
             You have access to the following tools:
@@ -85,24 +87,15 @@ class FeatureAgent(BaseAgent):
             {chat_history}
 
             New question: {input}
-            {agent_scratchpad}""",
-        )
-
-        return initialize_agent(
-            tools=self.tools,
-            llm=self.llm,
-            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            verbose=True,
-            prompt=prompt,
-            memory=self.memory,
+            {agent_scratchpad}"""
         )
 
     def run(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         task_description: str,
-        feedback: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        feedback: str | None = None,
+    ) -> dict[str, Any]:
         """
         Run the feature extraction agent.
 
@@ -118,7 +111,7 @@ class FeatureAgent(BaseAgent):
         input_text = self._prepare_input(input_data, task_description, feedback)
 
         # Run the agent
-        result = self.agent_executor.run(input=input_text)
+        result = self.agent_executor.invoke(input_text)
 
         # Process the result
         features = self._process_agent_result(result, input_data)
@@ -127,14 +120,14 @@ class FeatureAgent(BaseAgent):
 
     def _prepare_input(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         task_description: str,
-        feedback: Optional[str] = None,
+        feedback: str | None = None,
     ) -> str:
         """Prepare input for the agent."""
         input_text = f"""
         Task: {task_description}
-        
+
         Input Data:
         {self._format_input_data(input_data)}
         """
@@ -144,7 +137,7 @@ class FeatureAgent(BaseAgent):
 
         return input_text
 
-    def _format_input_data(self, data: Dict[str, Any]) -> str:
+    def _format_input_data(self, data: dict[str, Any]) -> str:
         """Format input data for the agent."""
         formatted = []
 
@@ -158,12 +151,14 @@ class FeatureAgent(BaseAgent):
 
         return "\n".join(formatted)
 
-    def _process_agent_result(
-        self, result: str, input_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _process_agent_result(self, result: str, input_data: dict[str, Any]) -> dict[str, Any]:
         """Process the agent's result."""
-        # Extract features using the processor
-        processed_data = self.processor.process(input_data)
+        # Reuse already-processed data (PyroChain.extract_features processes once); otherwise
+        # run the multimodal processor now.
+        if "multimodal_features" in input_data:
+            processed_data = input_data
+        else:
+            processed_data = self.processor.process(input_data)
 
         # Parse the agent's result to extract structured features
         features = {
@@ -206,8 +201,8 @@ class FeatureAgent(BaseAgent):
         return "Feature summary generated: comprehensive overview of all extracted features"
 
     def extract_features_for_task(
-        self, data: Dict[str, Any], task_type: str, domain: str = "general"
-    ) -> Dict[str, Any]:
+        self, data: dict[str, Any], task_type: str, domain: str = "general"
+    ) -> dict[str, Any]:
         """
         Extract features optimized for a specific task type.
 
@@ -226,7 +221,7 @@ class FeatureAgent(BaseAgent):
 
         return self.run(data, task_description)
 
-    def get_feature_importance(self, features: Dict[str, Any]) -> Dict[str, float]:
+    def get_feature_importance(self, features: dict[str, Any]) -> dict[str, float]:
         """Get importance scores for extracted features."""
         # Simplified feature importance calculation
         importance_scores = {}

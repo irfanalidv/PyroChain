@@ -4,8 +4,7 @@ LoRA (Low-Rank Adaptation) implementation for efficient fine-tuning.
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from typing import Dict, Any, Optional, List
+
 from .base import BaseAdapter
 
 
@@ -48,7 +47,7 @@ class LoRAAdapter(BaseAdapter):
         device: torch.device,
         rank: int = 16,
         alpha: float = 16.0,
-        target_modules: Optional[List[str]] = None,
+        target_modules: list[str] | None = None,
         **kwargs,
     ):
         """Initialize LoRA adapter."""
@@ -60,76 +59,69 @@ class LoRAAdapter(BaseAdapter):
         self._setup_lora_layers()
         self.freeze_base_model()
 
+    def _hidden_size(self) -> int:
+        return int(self.model.get_input_embeddings().weight.shape[-1])
+
     def _setup_lora_layers(self):
-        """Setup LoRA layers for target modules."""
+        """Setup LoRA layers.
+
+        One low-rank residual layer is created per target ``nn.Linear`` module whose input and
+        output size equal the model's hidden size; each is applied to the final hidden states.
+        If no target module qualifies (e.g. GPT-2 uses ``Conv1D``), a single residual layer on
+        the final hidden states is created so the adapter always has trainable parameters.
+        """
         self.lora_layers = nn.ModuleDict()
+        hidden = self._hidden_size()
 
         for name, module in self.model.named_modules():
             if any(target in name for target in self.target_modules):
-                if isinstance(module, nn.Linear):
-                    lora_layer = LoRALayer(
-                        in_features=module.in_features,
-                        out_features=module.out_features,
-                        rank=self.rank,
-                        alpha=self.alpha,
-                    ).to(self.device)
-                    self.lora_layers[name] = lora_layer
+                if (
+                    isinstance(module, nn.Linear)
+                    and module.in_features == hidden
+                    and module.out_features == hidden
+                ):
+                    # ModuleDict keys may not contain "."
+                    self.lora_layers[name.replace(".", "__")] = LoRALayer(
+                        in_features=hidden, out_features=hidden, rank=self.rank, alpha=self.alpha
+                    )
 
-    def forward(
-        self, input_ids: torch.Tensor, attention_mask: torch.Tensor
-    ) -> torch.Tensor:
-        """Forward pass with LoRA adaptation."""
-        # Get base model outputs
+        if len(self.lora_layers) == 0:
+            self.lora_layers["final_hidden"] = LoRALayer(
+                in_features=hidden, out_features=hidden, rank=self.rank, alpha=self.alpha
+            )
+        self.lora_layers.to(device=self.device, dtype=self.model.dtype)
+
+    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
+        """Forward pass: base-model hidden states plus the low-rank residual adaptations."""
         outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
         hidden_states = outputs.last_hidden_state
 
-        # Apply LoRA adaptations
-        adapted_states = hidden_states.clone()
-
-        for name, lora_layer in self.lora_layers.items():
-            # Find the corresponding linear layer
-            module_path = name.split(".")
-            current_module = self.model
-
-            for path_part in module_path[:-1]:
-                current_module = getattr(current_module, path_part)
-
-            original_layer = getattr(current_module, module_path[-1])
-
-            # Apply LoRA transformation
-            lora_output = lora_layer(hidden_states)
-            adapted_states = adapted_states + lora_output
-
+        adapted_states = hidden_states
+        for lora_layer in self.lora_layers.values():
+            adapted_states = adapted_states + lora_layer(hidden_states)
         return adapted_states
 
-    def train_step(self, batch: Dict[str, torch.Tensor]) -> Dict[str, float]:
-        """Single training step for LoRA adapter."""
-        self.train()
+    def train_step(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        """Compute the next-token language-modelling loss for one batch.
 
+        Logits are obtained by projecting adapted hidden states onto the (tied) input embedding
+        matrix, as in GPT-2's LM head. Returns ``{"loss": tensor}``; the caller runs backward.
+        """
         input_ids = batch["input_ids"]
         attention_mask = batch["attention_mask"]
         labels = batch.get("labels", input_ids)
 
-        # Forward pass
-        outputs = self.forward(input_ids, attention_mask)
+        hidden = self.forward(input_ids, attention_mask)
+        logits = hidden @ self.model.get_input_embeddings().weight.T
 
-        # Calculate loss (simple language modeling loss)
-        if labels is not None:
-            # Shift labels for next token prediction
-            shift_logits = outputs[..., :-1, :].contiguous()
-            shift_labels = labels[..., 1:].contiguous()
-
-            loss_fct = nn.CrossEntropyLoss()
-            loss = loss_fct(
-                shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1)
-            )
-        else:
-            loss = torch.tensor(0.0, device=self.device)
-
-        # Backward pass
-        loss.backward()
-
-        return {"loss": loss.item()}
+        shift_logits = logits[..., :-1, :].contiguous()
+        shift_labels = labels[..., 1:].contiguous()
+        loss = nn.functional.cross_entropy(
+            shift_logits.view(-1, shift_logits.size(-1)),
+            shift_labels.view(-1),
+            ignore_index=-100,
+        )
+        return {"loss": loss}
 
     def save(self, path: str):
         """Save LoRA adapter weights."""
@@ -155,11 +147,11 @@ class LoRAAdapter(BaseAdapter):
 
     def load(self, path: str):
         """Load LoRA adapter weights."""
-        import os
         import json
+        import os
 
         # Load configuration
-        with open(os.path.join(path, "config.json"), "r") as f:
+        with open(os.path.join(path, "config.json")) as f:
             config = json.load(f)
 
         # Update configuration
@@ -174,7 +166,7 @@ class LoRAAdapter(BaseAdapter):
         weights_path = os.path.join(path, "lora_weights.pt")
         if os.path.exists(weights_path):
             self.lora_layers.load_state_dict(
-                torch.load(weights_path, map_location=self.device)
+                torch.load(weights_path, map_location=self.device, weights_only=True)
             )
 
     def get_trainable_parameters(self) -> int:

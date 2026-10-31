@@ -10,13 +10,11 @@ This example demonstrates PyroChain functionality using ONLY real data:
 - NO random numbers, NO mock data, NO simulation
 """
 
-import json
 import time
-from transformers import AutoTokenizer, AutoModel
-import torch
-from textblob import TextBlob
-import nltk
+
 from datasets import load_dataset
+from textblob import TextBlob
+from transformers import AutoModel, AutoTokenizer
 
 
 def load_real_data():
@@ -109,65 +107,42 @@ def real_text_analysis(text):
     avg_sentence_length = word_count / sentence_count if sentence_count > 0 else 0
 
     # Average word length
-    avg_word_length = (
-        sum(len(word) for word in words) / word_count if word_count > 0 else 0
-    )
+    avg_word_length = sum(len(word) for word in words) / word_count if word_count > 0 else 0
 
     # Real readability score based on actual text complexity
     # Longer words and sentences = lower readability
-    readability_score = max(
-        0.0, min(1.0, 1.0 - (avg_word_length / 8) - (avg_sentence_length / 30))
-    )
+    readability_score = max(0.0, min(1.0, 1.0 - (avg_word_length / 8) - (avg_sentence_length / 30)))
 
     # Real topic analysis based on actual content
     text_lower = text.lower()
     topic_keywords = []
 
     if any(
-        word in text_lower
-        for word in ["movie", "film", "cinema", "cinematic", "motion picture"]
+        word in text_lower for word in ["movie", "film", "cinema", "cinematic", "motion picture"]
     ):
         topic_keywords.append("movie")
-    if any(
-        word in text_lower
-        for word in ["review", "critic", "critique", "opinion", "thoughts"]
-    ):
+    if any(word in text_lower for word in ["review", "critic", "critique", "opinion", "thoughts"]):
         topic_keywords.append("review")
     if any(
-        word in text_lower
-        for word in ["actor", "actress", "performance", "acting", "star", "cast"]
+        word in text_lower for word in ["actor", "actress", "performance", "acting", "star", "cast"]
     ):
         topic_keywords.append("acting")
-    if any(
-        word in text_lower
-        for word in ["story", "plot", "narrative", "script", "storyline"]
-    ):
+    if any(word in text_lower for word in ["story", "plot", "narrative", "script", "storyline"]):
         topic_keywords.append("story")
-    if any(
-        word in text_lower
-        for word in ["director", "directed", "direction", "filmmaker"]
-    ):
+    if any(word in text_lower for word in ["director", "directed", "direction", "filmmaker"]):
         topic_keywords.append("direction")
     if any(word in text_lower for word in ["music", "soundtrack", "score", "audio"]):
         topic_keywords.append("music")
-    if any(
-        word in text_lower
-        for word in ["visual", "cinematography", "camera", "shot", "scene"]
-    ):
+    if any(word in text_lower for word in ["visual", "cinematography", "camera", "shot", "scene"]):
         topic_keywords.append("visuals")
-    if any(
-        word in text_lower
-        for word in ["comedy", "funny", "humor", "laugh", "hilarious"]
-    ):
+    if any(word in text_lower for word in ["comedy", "funny", "humor", "laugh", "hilarious"]):
         topic_keywords.append("comedy")
     if any(
-        word in text_lower
-        for word in ["drama", "dramatic", "serious", "emotional", "touching"]
+        word in text_lower for word in ["drama", "dramatic", "serious", "emotional", "touching"]
     ):
         topic_keywords.append("drama")
     if any(
-        word in text_lower
-        for word in ["action", "exciting", "thrilling", "adventure", "suspense"]
+        word in text_lower for word in ["action", "exciting", "thrilling", "adventure", "suspense"]
     ):
         topic_keywords.append("action")
 
@@ -205,9 +180,7 @@ def real_pyrochain_extract_features(data, task_description):
     # Real confidence calculation based on data quality
     confidence = min(
         0.95,
-        0.5
-        + (sentiment_data["total_sentiment_words"] / 20)
-        + (text_data["word_count"] / 500),
+        0.5 + (sentiment_data["total_sentiment_words"] / 20) + (text_data["word_count"] / 500),
     )
 
     # Measure actual processing time
@@ -336,13 +309,9 @@ def ecommerce_analysis():
         # Real recommendation score based on actual metrics
         rating_score = product["rating"] / 5.0
         vote_confidence = min(1.0, product["votes"] / 100.0)
-        price_value = max(
-            0.5, 1.0 - (product["price"] / 1000.0)
-        )  # Lower price = higher value
+        price_value = max(0.5, 1.0 - (product["price"] / 1000.0))  # Lower price = higher value
 
-        recommendation_score = (
-            rating_score * 0.5 + vote_confidence * 0.3 + price_value * 0.2
-        )
+        recommendation_score = rating_score * 0.5 + vote_confidence * 0.3 + price_value * 0.2
         recommendation_score = round(recommendation_score, 3)
 
         recommendation = {
@@ -363,7 +332,7 @@ def ecommerce_analysis():
     # Sort by recommendation score
     recommendations.sort(key=lambda x: x["recommendation_score"], reverse=True)
 
-    print(f"\n🏆 Top Recommendations:")
+    print("\n🏆 Top Recommendations:")
     for i, rec in enumerate(recommendations):
         print(f"{i+1}. {rec['title']} - Score: {rec['recommendation_score']}")
 
@@ -394,23 +363,21 @@ def main():
             },
         }
 
-        print(f"\n🎉 All real data examples completed!")
-        print(f"💾 Analysis completed successfully")
+        print("\n🎉 All real data examples completed!")
+        print("💾 Analysis completed successfully")
 
         # Display summary
-        print(f"\n📊 Summary:")
-        print(f"   Examples completed: 2")
-        print(f"   Data source: Real IMDB dataset")
-        print(f"   Analysis type: 100% real data analysis")
-        print(f"   Random data: NO")
-        print(f"   Mock data: NO")
-        print(f"   Simulation: NO")
+        print("\n📊 Summary:")
+        print("   Examples completed: 2")
+        print("   Data source: Real IMDB dataset")
+        print("   Analysis type: 100% real data analysis")
+        print("   Random data: NO")
+        print("   Mock data: NO")
+        print("   Simulation: NO")
 
         if basic_features:
             print(f"   Features extracted: {len(basic_features['features'])}")
-            print(
-                f"   Processing time: {basic_features['metadata']['processing_time']:.3f}s"
-            )
+            print(f"   Processing time: {basic_features['metadata']['processing_time']:.3f}s")
 
     except Exception as e:
         print(f"❌ Error running real data examples: {e}")
