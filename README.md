@@ -1,75 +1,63 @@
 <div align="center">
 
-# PyroChain 🔥
+# PyroChain
 
-**Intelligent feature engineering with AI agents: PyTorch + LangChain for multimodal data.**
+**Turn product records with text, images and numbers into validated PyTorch feature tensors, locally, with open models.**
 
 [![PyPI version](https://img.shields.io/pypi/v/pyrochain.svg)](https://pypi.org/project/pyrochain/)
 [![Python versions](https://img.shields.io/pypi/pyversions/pyrochain.svg)](https://pypi.org/project/pyrochain/)
-[![Tests](https://github.com/irfanalidv/PyroChain/actions/workflows/tests.yml/badge.svg)](https://github.com/irfanalidv/PyroChain/actions/workflows/tests.yml)
-[![PyPI Downloads](https://static.pepy.tech/badge/pyrochain)](https://pepy.tech/projects/pyrochain)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/irfanalidv/PyroChain/blob/main/LICENSE)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.1%2B-red)](https://pytorch.org/)
-[![LangChain](https://img.shields.io/badge/LangChain--core-0.3%2B-green)](https://python.langchain.com/)
+[![Downloads](https://static.pepy.tech/badge/pyrochain)](https://pepy.tech/projects/pyrochain)
+[![Tests](https://img.shields.io/github/actions/workflow/status/irfanalidv/PyroChain/tests.yml?branch=main&label=tests)](https://github.com/irfanalidv/PyroChain/actions/workflows/tests.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/irfanalidv/PyroChain/codeql.yml?branch=main&label=CodeQL)](https://github.com/irfanalidv/PyroChain/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/pypi/l/pyrochain.svg)](https://github.com/irfanalidv/PyroChain/blob/main/LICENSE)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![typed: mypy](https://img.shields.io/badge/typed-mypy-blue.svg)](https://mypy-lang.org/)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/irfanalidv/PyroChain/blob/main/CONTRIBUTING.md)
 
 </div>
 
----
+## Why PyroChain
 
-PyroChain combines PyTorch and Hugging Face Transformers with LangChain message memory to turn
-raw records (text, images, and structured fields) into feature tensors for machine-learning
-models. A feature agent extracts features, a validation agent scores them and asks for refinement
-when they fall below a threshold, and a lightweight LoRA adapter can be trained on your own text.
+Feature engineering for mixed data usually means a separate script per modality, plus glue code
+to check that nothing came out empty. PyroChain does it in one call: it embeds the text with a
+Hugging Face model, extracts image descriptors, fuses them, scores the result with a validation
+step that re-runs extraction when the score is too low, and returns plain PyTorch tensors. It
+runs on your machine with open models (no API keys), keeps a JSON-serialisable record of every
+step, and lets you fine-tune a small LoRA adapter on your own text so the embeddings follow your
+domain.
 
-## 🎯 What problem does PyroChain solve?
+## Features
 
-**Traditional feature engineering is hard:**
+| Area | What you get |
+| --- | --- |
+| **Text features** | Mean-pooled hidden states of any Hugging Face encoder or decoder (`last_hidden_state`), through the LoRA adapter |
+| **Image features** | Colour statistics, brightness, edge density, texture, size from Pillow / OpenCV; dominant colours (k-means); contour-based regions |
+| **Fusion** | `concat`, `add`, `multiply` or norm-weighted `attention` fusion of text and image vectors |
+| **Validation** | Completeness / quality / relevance score against a threshold; low scores trigger re-extraction and re-validation |
+| **LoRA adapter** | Low-rank residual layers on a frozen base model (12,288 trainable parameters at rank 8 on DialoGPT-small); next-token training, save / load |
+| **Agent memory** | Feature and validation agents keep a bounded LangChain message history, saved and restored as JSON |
+| **E-commerce** | `EcommerceFeatureExtractor` (price, category, brand, review, inventory features), `ProductAnalyzer` (similar items, k-means clustering) |
+| **Tooling** | `pyrochain` CLI, `FeatureMetrics`, `FeatureVisualizer` (`viz` extra), typed API (`py.typed`), Python 3.10 to 3.13 |
 
-- Manual feature extraction is time-consuming and error-prone
-- Different data types require different approaches
-- Domain expertise is needed to create meaningful features
-
-**PyroChain gives you one pipeline for it:**
-
-- One call turns a record (or a batch) with text, images, and numbers into feature tensors
-- A validation agent scores every result (completeness, quality, relevance) and triggers refinement
-- A LoRA adapter on top of a frozen open model can be fine-tuned on your domain text
-- Plain PyTorch tensors out, so it plugs into existing ML pipelines
-
-## 🚀 Key features
-
-- **🤖 Feature and validation agents**: LangChain tools plus a ReAct-style reasoning trace, with
-  conversation memory saved and restored as JSON
-- **📊 Multimodal processing**: text embeddings from the base model's hidden states, image
-  features (colour statistics, edges, size) via Pillow/OpenCV, fused by `concat`, `add`,
-  `multiply`, or `attention`
-- **⚡ Lightweight LoRA adapters**: the base model stays frozen; only low-rank layers train
-  (about 12k trainable parameters at rank 8 on DialoGPT-small)
-- **🛒 E-commerce helpers**: `EcommerceFeatureExtractor` and `ProductAnalyzer` (price, brand,
-  review, inventory features; product similarity and clustering)
-- **🖥️ CLI**: `pyrochain extract | train | predict | ecommerce | version`
-- **📈 Metrics and visualisation**: `FeatureMetrics`, plus `FeatureVisualizer` (with the `viz` extra)
-
-## 🛠️ Installation
+## Install
 
 ```bash
-pip install pyrochain               # core
-pip install "pyrochain[viz]"        # + matplotlib / seaborn / pandas for FeatureVisualizer
+pip install pyrochain            # or: uv add pyrochain
+pip install "pyrochain[viz]"     # + matplotlib, seaborn, pandas for FeatureVisualizer
 ```
 
-Requires Python 3.10+. For a CPU-only PyTorch (smaller download), install it first:
+For a smaller CPU-only PyTorch, install it first:
 
 ```bash
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 pip install pyrochain
 ```
 
-The first run downloads the default model (`microsoft/DialoGPT-small`, about 350 MB) and a
-tokenizer from the Hugging Face Hub. Any Hub model with a `last_hidden_state` output works via
-`PyroChainConfig(model_name=...)`.
+The first run downloads the default model, `microsoft/DialoGPT-small` (about 350 MB), and the
+`sentence-transformers/all-MiniLM-L6-v2` tokenizer from the Hugging Face Hub. After that,
+everything runs offline.
 
-## 🚀 Quick start
+## Quickstart
 
 ```python
 from pyrochain import PyroChain, PyroChainConfig
@@ -93,30 +81,120 @@ print(features["validation_feedback"])
 
 Output:
 
-```
+```text
 modalities: ['text']
 text features: (1, 768)
-validation score: 1.0
-Features passed validation with a score of 1.00
+validation score: 0.91
+Features passed validation with a score of 0.91
 ```
 
-Pass a list of dicts to process a batch, and add a PIL image under `image` for multimodal
-features. This script is in [`examples/quickstart.py`](https://github.com/irfanalidv/PyroChain/blob/main/examples/quickstart.py).
+A text-only record scores 0.91 (relevance is lower without an image); add a PIL image under
+`image` and it scores 1.0. Pass a list of dicts to process a batch. This script is
+[`examples/quickstart.py`](https://github.com/irfanalidv/PyroChain/blob/main/examples/quickstart.py).
 
-### Fine-tune the LoRA adapter
+## How it works
+
+```mermaid
+flowchart LR
+    R["record (dict)<br/>text fields · image · numbers"] --> MP
+    subgraph MP["MultimodalProcessor"]
+        TP["TextProcessor<br/>adapter.get_embeddings()"]
+        IP["ImageProcessor<br/>Pillow / OpenCV descriptors"]
+        TP --> F["fusion<br/>concat · add · multiply · attention"]
+        IP --> F
+    end
+    LA["LightweightAdapter<br/>LoRAAdapter on a frozen<br/>Hugging Face model"] -.-> TP
+    MP --> FC["FeatureExtractionChain<br/>FeatureAgent + memory"]
+    FC --> VC["ValidationChain<br/>ValidationAgent: score vs threshold"]
+    VC -->|"score below threshold:<br/>feedback"| FC
+    VC --> OUT["{'features': [...], 'metadata': {...}}<br/>PyTorch tensors"]
+```
+
+**Design decisions**
+
+- **Local and open.** Embeddings come from any Hugging Face model with a `last_hidden_state`
+  output (`PyroChainConfig(model_name=...)`); nothing calls a hosted API.
+- **The adapter is in the feature path.** Text embeddings are pooled from the LoRA-adapted
+  hidden states, so `train_adapter()` changes the features you extract. `lora_B` starts at
+  zero, so an untrained adapter returns exactly the base-model embedding.
+- **Deterministic agents.** The feature and validation agents run their LangChain tools in a
+  fixed order (`SequentialToolExecutor`) and log a ReAct-style transcript to memory; they do
+  not call a generative LLM. The ReAct prompt templates are exposed (`agent.agent`) if you want
+  to drive them with your own LangChain model.
+- **Rule-based validation.** The score is 0.3 x completeness + 0.4 x quality + 0.3 x
+  relevance. An empty or all-zero feature vector fails, which triggers one refinement pass and
+  a second validation.
+- **Fixed-size vectors.** Text and image vectors keep their size whether or not a modality is
+  present (missing ones are zeros), so every record in a batch stacks into one matrix.
+
+<details>
+<summary>Module map</summary>
+
+```text
+pyrochain/
+├── core.py           PyroChain, PyroChainConfig
+├── adapters/         LightweightAdapter, LoRAAdapter, LoRALayer, BaseAdapter
+├── processors/       MultimodalProcessor, TextProcessor, ImageProcessor
+├── agents/           FeatureAgent, ValidationAgent, ConversationMemory, SequentialToolExecutor
+├── chains/           FeatureExtractionChain, ValidationChain (memory, history, metrics)
+├── utils/            EcommerceFeatureExtractor, ProductAnalyzer, ProductData,
+│                     FeatureMetrics, FeatureVisualizer (viz extra)
+└── cli.py            pyrochain extract | train | predict | ecommerce | init | version
+```
+
+</details>
+
+## Use cases and examples
+
+Runnable scripts in [`examples/`](https://github.com/irfanalidv/PyroChain/tree/main/examples),
+with sample data in `examples/assets/`. No API keys; the first run downloads the model.
+
+| Script | Use case |
+| --- | --- |
+| [`quickstart.py`](https://github.com/irfanalidv/PyroChain/blob/main/examples/quickstart.py) | Extract and validate features for one product record |
+| [`review_sentiment_classifier.py`](https://github.com/irfanalidv/PyroChain/blob/main/examples/review_sentiment_classifier.py) | Text features into a scikit-learn sentiment classifier. On the 40 bundled reviews: 5-fold accuracy 0.88 +/- 0.14 vs a 0.50 baseline |
+| [`product_catalog_similarity.py`](https://github.com/irfanalidv/PyroChain/blob/main/examples/product_catalog_similarity.py) | "Similar items" and k-means clusters from text, image, price and brand; with `all-MiniLM-L6-v2` the 8 listings cluster into audio, apparel and kitchen |
+| [`listing_feature_matrix.py`](https://github.com/irfanalidv/PyroChain/blob/main/examples/listing_feature_matrix.py) | Fused text + image embeddings joined with tabular e-commerce features, saved as `.npz` |
+| [`support_adapter_finetune.py`](https://github.com/irfanalidv/PyroChain/blob/main/examples/support_adapter_finetune.py) | Fine-tune the LoRA adapter on support text, then save, reload and compare embeddings |
+
+The numbers above come from running the scripts on CPU; they are small demonstration datasets,
+not benchmarks.
+
+<details>
+<summary>Recipes</summary>
+
+`chain` is the `PyroChain` instance from the Quickstart.
+
+**Fine-tune the adapter on your text**
 
 ```python
-data = [{"text": "Great headphones with long battery life."},
-        {"text": "Comfortable organic cotton t-shirt."}] * 4
-out = chain.train_adapter(data, "product language modelling", epochs=3, learning_rate=1e-3)
-print([round(h["train_loss"], 2) for h in out["training_history"]])  # loss per epoch
-chain.save_model("my_model")   # adapter weights + agent memory
+data = [{"text": line} for line in open("my_domain.txt", encoding="utf-8") if line.strip()]
+out = chain.train_adapter(data, "domain language modelling", epochs=3, learning_rate=1e-3)
+print([round(h["train_loss"], 2) for h in out["training_history"]])
+chain.save_model("my_model")  # adapter weights + training history + agent memory
 chain.load_model("my_model")
 ```
 
-On DialoGPT-small this run took the training loss from 9.08 to 6.41 over the 3 epochs.
+**Use a sentence-embedding model for similarity work**
 
-### Command line
+```python
+chain = PyroChain(PyroChainConfig(model_name="sentence-transformers/all-MiniLM-L6-v2"))
+```
+
+Mean-pooled GPT-2-family states (such as DialoGPT's) are nearly parallel for any input, so
+cosine similarity between them stays close to 1.0; a sentence encoder separates texts better.
+
+**Similar products and clusters**
+
+```python
+from pyrochain.utils import ProductAnalyzer, ProductData
+
+analyzer = ProductAnalyzer(chain)
+matches = analyzer.find_similar_products(target, catalog, top_k=3)  # [{"product", "similarity"}]
+clusters = analyzer.cluster_products(catalog, n_clusters=3)  # {label: [product_id, ...]}
+```
+
+**Command line**
 
 ```bash
 echo '{"title": "Organic Cotton T-Shirt", "price": 29.99}' > item.json
@@ -128,28 +206,11 @@ pyrochain version
 
 Every command accepts `--model` and `--device`. Tensors are written to JSON as nested lists.
 
-## 💡 Use cases
+</details>
 
-**E-commerce and retail:** product recommendation features, product similarity and clustering,
-price and inventory features, review sentiment signals.
+## Configuration
 
-**Content and media:** text classification and tagging features, image content descriptors,
-content recommendation.
-
-**Business intelligence:** feature tables for customer behaviour, trend, or risk models.
-
-## 🏗️ How it works
-
-1. **Data ingestion**: a dict (or list of dicts) with text fields, images, and scalars
-2. **Processing**: `MultimodalProcessor` embeds text with the base model and extracts image features
-3. **Feature agent**: runs its extraction tools and records a reasoning trace in memory
-4. **Validation agent**: scores completeness, quality, and relevance against `validation_threshold`;
-   below it, the feature chain runs again with the feedback
-5. **Output**: `{"features": [...], "metadata": {...}}` with PyTorch tensors
-
-## ⚙️ Configuration
-
-`PyroChainConfig` fields (all optional):
+`PyroChainConfig` (all fields optional):
 
 | Field | Default | Meaning |
 | --- | --- | --- |
@@ -157,61 +218,60 @@ content recommendation.
 | `adapter_rank` | `16` | LoRA rank |
 | `max_length` | `512` | Max tokens per text |
 | `device` | `"auto"` | `auto` (CUDA, then MPS, then CPU), `cpu`, `cuda`, `mps` |
-| `memory_type` | `"conversation_buffer"` | Agent memory type |
+| `memory_type` | `"conversation_buffer"` | Agent memory type (bounded message buffer) |
 | `enable_validation` | `True` | Run the validation agent |
 | `validation_threshold` | `0.8` | Minimum score before refinement is triggered |
 
-No API keys are needed: everything runs locally on open models. Standard Hugging Face variables
-such as `HF_HOME` and `HF_HUB_OFFLINE` apply.
+Other options: `LightweightAdapter.train(..., batch_size=4, validation_split=0.1, seed=None)`,
+`MultimodalProcessor(fusion_method="concat", image_size=(224, 224))`.
 
-## 📚 API reference
+Environment: no API keys. Standard Hugging Face variables apply, for example `HF_HOME` (cache
+location) and `HF_HUB_OFFLINE=1` (never download). Training progress is reported through
+`logging` (logger `pyrochain.adapters.adapter`).
 
-- **`PyroChain(config)`**: `extract_features(data, task_description, validate=True)`,
-  `train_adapter(training_data, task_description, epochs, learning_rate)`, `save_model(path)`,
-  `load_model(path)`
-- **`PyroChainConfig`**: configuration dataclass (table above)
-- **`LightweightAdapter` / `LoRAAdapter`**: `get_embeddings(text)`, `encode_text(text)`,
-  `train(...)`, `save(path)`, `load(path)`, `get_trainable_parameters()`
-- **`MultimodalProcessor`**: `process(record)` returns text, image, and fused features
-- **`FeatureAgent` / `ValidationAgent`** and **`FeatureExtractionChain` / `ValidationChain`**
-- **`pyrochain.utils`**: `EcommerceFeatureExtractor`, `ProductAnalyzer`, `ProductData`,
-  `FeatureMetrics`, `FeatureVisualizer` (viz extra)
+## API overview
 
-The built-in agents run their tools deterministically and do not call a generative LLM; the ReAct
-prompt templates are exposed (`agent.agent`) if you want to drive them with your own LangChain model.
+| Object | Summary |
+| --- | --- |
+| `PyroChain(config)` | `extract_features(data, task_description, validate=True)`, `train_adapter(...)`, `save_model(path)`, `load_model(path)` |
+| `PyroChainConfig` | Configuration dataclass (table above) |
+| `LightweightAdapter` / `LoRAAdapter` | `get_embeddings(text)`, `encode_text(text)`, `train(...)`, `save(path)`, `load(path)`, `get_trainable_parameters()` |
+| `MultimodalProcessor` | `process(record)`, `get_features(record)`, `extract_structured_features(record)`, `get_feature_summary(record)` |
+| `FeatureAgent` / `ValidationAgent` | Tool-running agents with `run(...)` and JSON memory (`save_memory`, `load_memory`) |
+| `FeatureExtractionChain` / `ValidationChain` | Memory-backed orchestration, history and metrics (`get_chain_metrics`, `generate_validation_report`) |
+| `EcommerceFeatureExtractor` | `extract_product_features(product, task_type)`, `extract_tabular_features(product)` |
+| `ProductAnalyzer` | `analyze_product_similarity`, `find_similar_products`, `cluster_products` |
+| `FeatureMetrics` | Quality, similarity, clustering, validation, training and e-commerce metrics |
+| `FeatureVisualizer` | Distribution, embedding (PCA / t-SNE), clustering, training-history plots (`viz` extra) |
 
-## 🤝 Contributing
+## Research and references
 
-Contributions are welcome! See the [Contributing Guide](https://github.com/irfanalidv/PyroChain/blob/main/CONTRIBUTING.md)
-and [Code of Conduct](https://github.com/irfanalidv/PyroChain/blob/main/CODE_OF_CONDUCT.md).
+- **LoRA**: E. J. Hu, Y. Shen, P. Wallis, Z. Allen-Zhu, Y. Li, S. Wang, L. Wang, W. Chen.
+  *LoRA: Low-Rank Adaptation of Large Language Models.* ICLR 2022. PyroChain uses the same
+  low-rank update (`B·A` with `B` initialised to zero, scaled by `alpha / rank`), applied as a
+  residual on the base model's final hidden states rather than inside the attention weights.
+- **ReAct** prompt format: S. Yao et al. *ReAct: Synergizing Reasoning and Acting in Language
+  Models.* ICLR 2023. The agents' prompt templates follow this format; the built-in executor
+  runs the tools deterministically and does not call an LLM.
+- **DialoGPT** (default model): Y. Zhang et al. *DialoGPT: Large-Scale Generative Pre-training
+  for Conversational Response Generation.* ACL 2020 (System Demonstrations).
 
-```bash
-git clone https://github.com/irfanalidv/PyroChain.git && cd PyroChain
-pip install -e ".[dev]"
-ruff check . && black --check . && pytest   # tests use a tiny offline model, no downloads
-```
+## Roadmap
 
-Security issues: see [SECURITY.md](https://github.com/irfanalidv/PyroChain/blob/main/SECURITY.md).
-Release notes: [CHANGELOG.md](https://github.com/irfanalidv/PyroChain/blob/main/CHANGELOG.md).
+- Pretrained image encoders (for example a torchvision ResNet) as an option next to the
+  handcrafted image descriptors.
+- Batched text embedding instead of one forward pass per record.
+- LoRA inside attention projections for models that use `nn.Linear` attention layers.
+- Pluggable validation rules and an optional LLM-driven agent executor.
 
-## 📄 License
+## Contributing, security, citation, license
 
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/irfanalidv/PyroChain/blob/main/LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [PyTorch](https://pytorch.org/) for deep learning capabilities
-- [LangChain](https://python.langchain.com/) for messages, tools, and prompts
-- [Hugging Face](https://huggingface.co/) for transformer models
-
-## 📞 Support
-
-- 📚 [Documentation](https://github.com/irfanalidv/PyroChain#readme)
-- 🐛 [Report Issues](https://github.com/irfanalidv/PyroChain/issues)
-- 📧 [Contact](https://github.com/irfanalidv)
-
----
-
-**PyroChain** - Transform your data into intelligent features with AI agents. 🔥
-
-_Built with ❤️ by [Irfan Ali](https://github.com/irfanalidv)_
+- Contributions are welcome: see [CONTRIBUTING.md](https://github.com/irfanalidv/PyroChain/blob/main/CONTRIBUTING.md)
+  and the [Code of Conduct](https://github.com/irfanalidv/PyroChain/blob/main/CODE_OF_CONDUCT.md).
+  CI runs `ruff check`, `ruff format --check`, `mypy pyrochain` and `pytest --cov` (with a tiny
+  offline model) on Python 3.10 to 3.13.
+- Report vulnerabilities as described in [SECURITY.md](https://github.com/irfanalidv/PyroChain/blob/main/SECURITY.md).
+- To cite PyroChain, use [CITATION.cff](https://github.com/irfanalidv/PyroChain/blob/main/CITATION.cff)
+  (GitHub's "Cite this repository" button reads it).
+- Release notes: [CHANGELOG.md](https://github.com/irfanalidv/PyroChain/blob/main/CHANGELOG.md).
+- MIT licensed: see [LICENSE](https://github.com/irfanalidv/PyroChain/blob/main/LICENSE).
