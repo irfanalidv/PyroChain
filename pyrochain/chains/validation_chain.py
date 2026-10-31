@@ -59,7 +59,7 @@ class ValidationChain(BaseChain):
 
         # Generate additional feedback if needed
         if self.enable_feedback_loop and not validation_result.get("is_valid", False):
-            additional_feedback = self._generate_additional_feedback(validation_result)
+            additional_feedback = self._generate_additional_feedback(validation_result, features)
             validation_result["additional_feedback"] = additional_feedback
 
         # Add chain metadata
@@ -88,9 +88,9 @@ class ValidationChain(BaseChain):
         """Add validation result to memory."""
         result_message = f"""
         Validation Result:
-        Valid: {validation_result.get('is_valid', False)}
-        Score: {validation_result.get('score', 0.0):.2f}
-        Feedback: {validation_result.get('feedback', 'N/A')[:200]}...
+        Valid: {validation_result.get("is_valid", False)}
+        Score: {validation_result.get("score", 0.0):.2f}
+        Feedback: {validation_result.get("feedback", "N/A")[:200]}...
         """
 
         self.add_to_memory(AIMessage(content=result_message))
@@ -131,8 +131,15 @@ class ValidationChain(BaseChain):
 
         return "; ".join(summary_parts)
 
-    def _generate_additional_feedback(self, validation_result: dict[str, Any]) -> str:
-        """Generate additional feedback for failed validations."""
+    def _generate_additional_feedback(
+        self, validation_result: dict[str, Any], features: dict[str, Any] | None = None
+    ) -> str:
+        """Generate additional feedback for failed validations.
+
+        ``features`` are the features that were validated. (The validation result has no
+        ``"features"`` key, so the checks below used to fire on every failed validation.)
+        """
+        features = features if features is not None else validation_result.get("features", {})
         feedback_parts = []
 
         score = validation_result.get("score", 0.0)
@@ -145,10 +152,10 @@ class ValidationChain(BaseChain):
             feedback_parts.append("Minor improvements needed")
 
         # Add specific suggestions based on common issues
-        if "raw_features" not in validation_result.get("features", {}):
+        if features.get("raw_features") is None:
             feedback_parts.append("Ensure raw features are extracted")
 
-        if not validation_result.get("features", {}).get("metadata", {}).get("modalities"):
+        if not (features.get("metadata") or {}).get("modalities"):
             feedback_parts.append("Ensure modalities are properly detected")
 
         return ". ".join(feedback_parts)
@@ -162,9 +169,11 @@ class ValidationChain(BaseChain):
         """Validate a batch of features."""
         results = []
 
-        for i, (features, original_data) in enumerate(zip(features_list, original_data_list)):
+        for i, (features, original_data) in enumerate(
+            zip(features_list, original_data_list, strict=True)
+        ):
             # Add batch context to memory
-            batch_message = f"Validating batch item {i+1}/{len(features_list)}"
+            batch_message = f"Validating batch item {i + 1}/{len(features_list)}"
             self.add_to_memory(HumanMessage(content=batch_message))
 
             # Validate features
@@ -197,14 +206,13 @@ class ValidationChain(BaseChain):
 
         current_validation = {}
         for message in messages:
-            if isinstance(message, HumanMessage):
-                if "Validation Task" in message.content:
-                    current_validation = {"input": message.content}
-            elif isinstance(message, AIMessage):
-                if "Validation Result" in message.content:
-                    current_validation["output"] = message.content
-                    history.append(current_validation)
-                    current_validation = {}
+            content = str(message.content)
+            if isinstance(message, HumanMessage) and "Validation Task" in content:
+                current_validation = {"input": content}
+            elif isinstance(message, AIMessage) and "Validation Result" in content:
+                current_validation["output"] = content
+                history.append(current_validation)
+                current_validation = {}
 
         return history
 
@@ -229,7 +237,7 @@ class ValidationChain(BaseChain):
             # Extract score (simplified parsing)
             if "Score:" in output:
                 try:
-                    score_line = [line for line in output.split("\n") if "Score:" in line][0]
+                    score_line = next(line for line in output.split("\n") if "Score:" in line)
                     score = float(score_line.split(":")[1].strip())
                     scores.append(score)
                 except (ValueError, IndexError):

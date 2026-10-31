@@ -108,11 +108,13 @@ class FeatureExtractionChain(BaseChain):
 
     def _add_result_to_memory(self, features: dict[str, Any], iteration: int):
         """Add result to memory."""
+        raw = features.get("raw_features")
+        num_vectors = len(raw) if raw is not None else 0  # raw_features may be None
         result_message = f"""
         Iteration {iteration} - Feature Extraction Result:
-        Features extracted: {len(features.get('raw_features', []))} feature vectors
-        Modalities: {features.get('metadata', {}).get('modalities', [])}
-        Agent reasoning: {features.get('agent_reasoning', 'N/A')[:200]}...
+        Features extracted: {num_vectors} feature vectors
+        Modalities: {features.get("metadata", {}).get("modalities", [])}
+        Agent reasoning: {str(features.get("agent_reasoning") or "N/A")[:200]}...
         """
 
         self.add_to_memory(AIMessage(content=result_message))
@@ -137,15 +139,14 @@ class FeatureExtractionChain(BaseChain):
         if features.get("raw_features") is None:
             return True
 
-        if isinstance(features["raw_features"], torch.Tensor):
-            if features["raw_features"].shape[-1] == 0:
-                return True
-
-        # Check if metadata is missing
-        if not features.get("metadata"):
+        if (
+            isinstance(features["raw_features"], torch.Tensor)
+            and features["raw_features"].numel() == 0
+        ):
             return True
 
-        return False
+        # Check if metadata is missing
+        return bool(not features.get("metadata"))
 
     def _generate_refinement_feedback(self, features: dict[str, Any]) -> str:
         """Generate feedback for refinement."""
@@ -173,7 +174,7 @@ class FeatureExtractionChain(BaseChain):
 
         for i, data in enumerate(data_list):
             # Add batch context to memory
-            batch_message = f"Processing batch item {i+1}/{len(data_list)}"
+            batch_message = f"Processing batch item {i + 1}/{len(data_list)}"
             self.add_to_memory(HumanMessage(content=batch_message))
 
             # Extract features
@@ -203,14 +204,13 @@ class FeatureExtractionChain(BaseChain):
 
         current_extraction = {}
         for message in messages:
-            if isinstance(message, HumanMessage):
-                if "Feature Extraction Task" in message.content:
-                    current_extraction = {"input": message.content}
-            elif isinstance(message, AIMessage):
-                if "Feature Extraction Result" in message.content:
-                    current_extraction["output"] = message.content
-                    history.append(current_extraction)
-                    current_extraction = {}
+            content = str(message.content)
+            if isinstance(message, HumanMessage) and "Feature Extraction Task" in content:
+                current_extraction = {"input": content}
+            elif isinstance(message, AIMessage) and "Feature Extraction Result" in content:
+                current_extraction["output"] = content
+                history.append(current_extraction)
+                current_extraction = {}
 
         return history
 

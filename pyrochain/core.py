@@ -40,13 +40,13 @@ class PyroChain:
         self.config = config or PyroChainConfig()
         self.device = self._setup_device()
 
-        # Initialize components
-        self.adapter = None
-        self.processor = None
-        self.feature_agent = None
-        self.validation_agent = None
-        self.feature_chain = None
-        self.validation_chain = None
+        # Components (set by _initialize_components)
+        self.adapter: LightweightAdapter
+        self.processor: MultimodalProcessor
+        self.feature_agent: FeatureAgent
+        self.feature_chain: FeatureExtractionChain
+        self.validation_agent: ValidationAgent | None = None
+        self.validation_chain: ValidationChain | None = None
 
         self._initialize_components()
 
@@ -55,13 +55,12 @@ class PyroChain:
         if self.config.device == "auto":
             if torch.cuda.is_available():
                 return torch.device("cuda")
-            elif torch.backends.mps.is_available():
+            if torch.backends.mps.is_available():
                 return torch.device("mps")
-            else:
-                return torch.device("cpu")
+            return torch.device("cpu")
         return torch.device(self.config.device)
 
-    def _initialize_components(self):
+    def _initialize_components(self) -> None:
         """Initialize all PyroChain components."""
         # Initialize lightweight adapter
         self.adapter = LightweightAdapter(
@@ -90,7 +89,7 @@ class PyroChain:
             agent=self.feature_agent, memory_type=self.config.memory_type
         )
 
-        if self.config.enable_validation:
+        if self.validation_agent is not None:
             self.validation_chain = ValidationChain(
                 agent=self.validation_agent, memory_type=self.config.memory_type
             )
@@ -138,15 +137,22 @@ class PyroChain:
                     features["validation_score"] = validation_result["score"]
                     features["validation_feedback"] = validation_result["feedback"]
                 else:
-                    # Refine features based on validation feedback
+                    # Refine features based on validation feedback, then validate the refined
+                    # features so the reported score describes what is returned.
                     refined_features = self.feature_chain.run(
                         input_data=processed_data,
                         task_description=task_description,
                         feedback=validation_result["feedback"],
                     )
                     features.update(refined_features)
-                    features["validation_score"] = validation_result["score"]
-                    features["validation_feedback"] = validation_result["feedback"]
+                    revalidated = self.validation_chain.run(
+                        features=features,
+                        original_data=processed_data,
+                        task_description=task_description,
+                    )
+                    features["validation_score"] = revalidated["score"]
+                    features["validation_feedback"] = revalidated["feedback"]
+                    features["refined"] = True
 
             results.append(features)
 
@@ -186,7 +192,7 @@ class PyroChain:
             learning_rate=learning_rate,
         )
 
-    def save_model(self, path: str | Path):
+    def save_model(self, path: str | Path) -> None:
         """Save the trained model and adapters."""
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
@@ -201,7 +207,7 @@ class PyroChain:
         if self.validation_chain:
             self.validation_chain.save_memory(path / "validation_memory")
 
-    def load_model(self, path: str | Path):
+    def load_model(self, path: str | Path) -> None:
         """Load a previously saved model and adapters."""
         path = Path(path)
 

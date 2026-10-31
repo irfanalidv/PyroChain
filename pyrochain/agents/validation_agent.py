@@ -78,7 +78,8 @@ class ValidationAgent(BaseAgent):
         # tools deterministically (see SequentialToolExecutor).
         return PromptTemplate.from_template(
             """You are a specialized feature validation agent for PyroChain.
-            Your task is to validate and provide feedback on features extracted by the feature agent.
+            Your task is to validate and provide feedback on features extracted by the
+            feature agent.
 
             You have access to the following tools:
             {tools}
@@ -217,7 +218,7 @@ class ValidationAgent(BaseAgent):
 
         # Calculate weighted average
         weights = [0.3, 0.4, 0.3]  # completeness, quality, relevance
-        overall_score = sum(w * s for w, s in zip(weights, scores))
+        overall_score = sum(w * s for w, s in zip(weights, scores, strict=True))
 
         return min(1.0, max(0.0, overall_score))
 
@@ -231,19 +232,18 @@ class ValidationAgent(BaseAgent):
         """Check quality of features."""
         score = 0.0
 
-        # Check if features are tensors with reasonable dimensions
-        if "raw_features" in features and isinstance(features["raw_features"], torch.Tensor):
-            if features["raw_features"].shape[-1] > 0:
-                score += 0.5
+        # Non-empty, non-zero feature tensor (an all-zero vector carries no information)
+        raw = features.get("raw_features")
+        if isinstance(raw, torch.Tensor) and raw.numel() > 0 and bool(raw.abs().sum() > 0):
+            score += 0.5
 
         # Check if metadata is present
-        if "metadata" in features and isinstance(features["metadata"], dict):
+        if isinstance(features.get("metadata"), dict):
             score += 0.3
 
         # Check if modalities are detected
-        if "metadata" in features and "modalities" in features["metadata"]:
-            if features["metadata"]["modalities"]:
-                score += 0.2
+        if self._modalities(features):
+            score += 0.2
 
         return min(1.0, score)
 
@@ -252,15 +252,22 @@ class ValidationAgent(BaseAgent):
         # Simplified relevance check
         score = 0.5  # Base score
 
-        # Check if both text and image features are present
-        if "text_features" in features and "image_features" in features:
+        # Both modalities actually detected (the feature keys are always present, possibly
+        # holding zero tensors, so key presence says nothing)
+        modalities = self._modalities(features)
+        if "text" in modalities and "image" in modalities:
             score += 0.3
 
         # Check if multimodal features are present
-        if "raw_features" in features:
+        if features.get("raw_features") is not None:
             score += 0.2
 
         return min(1.0, score)
+
+    @staticmethod
+    def _modalities(features: dict[str, Any]) -> list[str]:
+        metadata = features.get("metadata")
+        return list(metadata.get("modalities") or []) if isinstance(metadata, dict) else []
 
     def _generate_feedback(self, features: dict[str, Any], score: float, is_valid: bool) -> str:
         """Generate feedback based on validation results."""
@@ -270,14 +277,15 @@ class ValidationAgent(BaseAgent):
             feedback_parts.append(f"Features passed validation with a score of {score:.2f}")
         else:
             feedback_parts.append(
-                f"Features failed validation with a score of {score:.2f} (threshold: {self.threshold:.2f})"
+                f"Features failed validation with a score of {score:.2f} "
+                f"(threshold: {self.threshold:.2f})"
             )
 
         # Add specific feedback based on issues
         if score < 0.5:
             feedback_parts.append("Consider improving feature extraction quality")
 
-        if "text_features" not in features and "image_features" not in features:
+        if not self._modalities(features):
             feedback_parts.append("No text or image features detected")
 
         if "metadata" not in features:
@@ -318,7 +326,7 @@ class ValidationAgent(BaseAgent):
         """Validate a batch of features."""
         results = []
 
-        for features, original_data in zip(features_list, original_data_list):
+        for features, original_data in zip(features_list, original_data_list, strict=True):
             result = self.run(features, original_data, task_description)
             results.append(result)
 
