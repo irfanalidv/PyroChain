@@ -2,10 +2,16 @@
 LoRA (Low-Rank Adaptation) implementation for efficient fine-tuning.
 """
 
+import json
+import logging
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 
 from .base import BaseAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class LoRALayer(nn.Module):
@@ -74,16 +80,15 @@ class LoRAAdapter(BaseAdapter):
         hidden = self._hidden_size()
 
         for name, module in self.model.named_modules():
-            if any(target in name for target in self.target_modules):
-                if (
-                    isinstance(module, nn.Linear)
-                    and module.in_features == hidden
-                    and module.out_features == hidden
-                ):
-                    # ModuleDict keys may not contain "."
-                    self.lora_layers[name.replace(".", "__")] = LoRALayer(
-                        in_features=hidden, out_features=hidden, rank=self.rank, alpha=self.alpha
-                    )
+            if any(target in name for target in self.target_modules) and (
+                isinstance(module, nn.Linear)
+                and module.in_features == hidden
+                and module.out_features == hidden
+            ):
+                # ModuleDict keys may not contain "."
+                self.lora_layers[name.replace(".", "__")] = LoRALayer(
+                    in_features=hidden, out_features=hidden, rank=self.rank, alpha=self.alpha
+                )
 
         if len(self.lora_layers) == 0:
             self.lora_layers["final_hidden"] = LoRALayer(
@@ -123,51 +128,45 @@ class LoRAAdapter(BaseAdapter):
         )
         return {"loss": loss}
 
-    def save(self, path: str):
-        """Save LoRA adapter weights."""
-        import os
-
-        os.makedirs(path, exist_ok=True)
-
-        # Save LoRA weights
-        torch.save(self.lora_layers.state_dict(), os.path.join(path, "lora_weights.pt"))
-
-        # Save configuration
+    def save(self, path: str | Path) -> None:
+        """Save LoRA weights (``lora_weights.pt``) and configuration (``config.json``)."""
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        torch.save(self.lora_layers.state_dict(), path / "lora_weights.pt")
         config = {
             "model_name": self.model_name,
             "rank": self.rank,
             "alpha": self.alpha,
             "target_modules": self.target_modules,
         }
+        (path / "config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
 
-        import json
+    def load(self, path: str | Path) -> None:
+        """Load LoRA weights saved by :meth:`save`.
 
-        with open(os.path.join(path, "config.json"), "w") as f:
-            json.dump(config, f, indent=2)
+        Raises:
+            FileNotFoundError: If ``config.json`` or ``lora_weights.pt`` is missing.
+        """
+        path = Path(path)
+        config = json.loads((path / "config.json").read_text(encoding="utf-8"))
+        weights_path = path / "lora_weights.pt"
+        if not weights_path.exists():
+            raise FileNotFoundError(f"LoRA weights not found: {weights_path}")
+        if config.get("model_name") != self.model_name:
+            logger.warning(
+                "Adapter in %s was trained on %r but is being loaded into %r",
+                path,
+                config.get("model_name"),
+                self.model_name,
+            )
 
-    def load(self, path: str):
-        """Load LoRA adapter weights."""
-        import json
-        import os
-
-        # Load configuration
-        with open(os.path.join(path, "config.json")) as f:
-            config = json.load(f)
-
-        # Update configuration
         self.rank = config["rank"]
         self.alpha = config["alpha"]
         self.target_modules = config["target_modules"]
-
-        # Recreate LoRA layers
         self._setup_lora_layers()
-
-        # Load weights
-        weights_path = os.path.join(path, "lora_weights.pt")
-        if os.path.exists(weights_path):
-            self.lora_layers.load_state_dict(
-                torch.load(weights_path, map_location=self.device, weights_only=True)
-            )
+        self.lora_layers.load_state_dict(
+            torch.load(weights_path, map_location=self.device, weights_only=True)
+        )
 
     def get_trainable_parameters(self) -> int:
         """Get number of trainable parameters."""

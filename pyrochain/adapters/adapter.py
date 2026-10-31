@@ -2,6 +2,9 @@
 Main adapter class that wraps different adapter types.
 """
 
+import json
+import logging
+import random
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +13,8 @@ import torch.optim as optim
 from tqdm import tqdm
 
 from .lora import LoRAAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class LightweightAdapter:
@@ -51,9 +56,9 @@ class LightweightAdapter:
         else:
             raise ValueError(f"Unsupported adapter type: {adapter_type}")
 
-        self.optimizer = None
-        self.scheduler = None
-        self.training_history = []
+        self.optimizer: optim.Optimizer | None = None
+        self.scheduler: optim.lr_scheduler.LRScheduler | None = None
+        self.training_history: list[dict[str, Any]] = []
 
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
         """Forward pass through the adapter."""
@@ -75,7 +80,8 @@ class LightweightAdapter:
         learning_rate: float = 1e-4,
         batch_size: int = 4,
         validation_split: float = 0.1,
-        **kwargs,
+        seed: int | None = None,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """
         Train the adapter on task-specific data.
@@ -86,21 +92,30 @@ class LightweightAdapter:
             epochs: Number of training epochs
             learning_rate: Learning rate for optimization
             batch_size: Batch size for training
-            validation_split: Fraction of data to use for validation
+            validation_split: Fraction of data to use for validation (at least one sample is
+                always kept for training)
+            seed: Seed for the train/validation shuffle, for reproducible splits
 
         Returns:
             Training metrics and results
+
+        Raises:
+            ValueError: If ``training_data`` is empty or contains no text.
         """
-        # Setup optimizer
-        self.optimizer = optim.AdamW(
+        if not training_data:
+            raise ValueError("training_data is empty")
+        if not any(str(sample.get("text", "")).strip() for sample in training_data):
+            raise ValueError("training_data has no non-empty 'text' fields to train on")
+
+        # Setup optimizer and scheduler
+        optimizer = optim.AdamW(
             self.adapter.lora_layers.parameters(), lr=learning_rate, weight_decay=0.01
         )
-
-        # Setup scheduler
-        self.scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs)
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+        self.optimizer, self.scheduler = optimizer, scheduler
 
         # Prepare data
-        train_data, val_data = self._split_data(training_data, validation_split)
+        train_data, val_data = self._split_data(training_data, validation_split, seed)
         train_loader = self._create_data_loader(train_data, batch_size)
         val_loader = self._create_data_loader(val_data, batch_size) if val_data else None
 
@@ -118,13 +133,13 @@ class LightweightAdapter:
                 val_metrics = self._validate_epoch(val_loader, task_description)
 
             # Update learning rate
-            self.scheduler.step()
+            scheduler.step()
 
             # Record metrics
             epoch_metrics = {
                 "epoch": epoch + 1,
                 "train_loss": train_metrics["loss"],
-                "learning_rate": self.optimizer.param_groups[0]["lr"],
+                "learning_rate": optimizer.param_groups[0]["lr"],
                 **val_metrics,
             }
             training_history.append(epoch_metrics)
@@ -136,8 +151,12 @@ class LightweightAdapter:
 
             val_loss = val_metrics.get("val_loss")
             val_str = f"{val_loss:.4f}" if val_loss is not None else "N/A"
-            print(
-                f"Epoch {epoch + 1}/{epochs}: Train Loss: {train_metrics['loss']:.4f}, Val Loss: {val_str}"
+            logger.info(
+                "Epoch %d/%d: train loss %.4f, val loss %s",
+                epoch + 1,
+                epochs,
+                train_metrics["loss"],
+                val_str,
             )
 
         self.training_history = training_history
@@ -150,17 +169,23 @@ class LightweightAdapter:
             "adapter_type": self.adapter_type,
         }
 
-    def _split_data(self, data: list[dict[str, Any]], validation_split: float) -> tuple:
-        """Split data into training and validation sets."""
-        import random
+    def _split_data(
+        self, data: list[dict[str, Any]], validation_split: float, seed: int | None = None
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Shuffle (without touching global RNG state) and split into train / validation.
 
+        The training split always keeps at least one sample; previously a tiny dataset
+        (e.g. one sample) produced an empty training set and a silent no-op "training" run.
+        """
         data = list(data)  # don't mutate the caller's list
-        random.shuffle(data)
+        random.Random(seed).shuffle(data)
 
-        split_idx = int(len(data) * (1 - validation_split))
+        split_idx = max(1, int(len(data) * (1 - validation_split)))
         return data[:split_idx], data[split_idx:]
 
-    def _create_data_loader(self, data: list[dict[str, Any]], batch_size: int):
+    def _create_data_loader(
+        self, data: list[dict[str, Any]], batch_size: int
+    ) -> list[dict[str, torch.Tensor]]:
         """Create a data loader for the given data."""
         # Simple batching implementation
         batches = []
@@ -182,13 +207,18 @@ class LightweightAdapter:
 
         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": labels}
 
-    def _train_epoch(self, data_loader, task_description: str) -> dict[str, float]:
+    def _train_epoch(
+        self, data_loader: list[dict[str, torch.Tensor]], task_description: str
+    ) -> dict[str, float]:
         """Train for one epoch."""
+        if self.optimizer is None:
+            raise RuntimeError("call train() to set up the optimizer first")
         self.adapter.train()
         total_loss = 0.0
         num_batches = 0
 
-        for batch in tqdm(data_loader, desc="Training"):
+        # disable=None hides the progress bar when stderr is not a terminal (logs, CI)
+        for batch in tqdm(data_loader, desc="Training", disable=None):
             self.optimizer.zero_grad()
 
             # Forward pass
@@ -207,14 +237,16 @@ class LightweightAdapter:
 
         return {"loss": total_loss / max(num_batches, 1)}
 
-    def _validate_epoch(self, data_loader, task_description: str) -> dict[str, float]:
+    def _validate_epoch(
+        self, data_loader: list[dict[str, torch.Tensor]], task_description: str
+    ) -> dict[str, float]:
         """Validate for one epoch."""
         self.adapter.eval()
         total_loss = 0.0
         num_batches = 0
 
         with torch.no_grad():
-            for batch in tqdm(data_loader, desc="Validation"):
+            for batch in tqdm(data_loader, desc="Validation", disable=None):
                 total_loss += self.adapter.train_step(batch)["loss"].item()
                 num_batches += 1
 
@@ -230,10 +262,9 @@ class LightweightAdapter:
 
         # Save training history
         if self.training_history:
-            import json
-
-            with open(path / "training_history.json", "w") as f:
-                json.dump(self.training_history, f, indent=2)
+            (path / "training_history.json").write_text(
+                json.dumps(self.training_history, indent=2), encoding="utf-8"
+            )
 
     def load(self, path: str | Path):
         """Load the adapter."""
@@ -245,7 +276,4 @@ class LightweightAdapter:
         # Load training history if available
         history_path = path / "training_history.json"
         if history_path.exists():
-            import json
-
-            with open(history_path) as f:
-                self.training_history = json.load(f)
+            self.training_history = json.loads(history_path.read_text(encoding="utf-8"))
