@@ -157,6 +157,10 @@ class EcommerceFeatureExtractor:
 
         return task_descriptions.get(task_type, "Extract general product features")
 
+    def extract_tabular_features(self, product_data: ProductData) -> dict[str, Any]:
+        """Price, category, brand, review, attribute and inventory features (no model needed)."""
+        return self._extract_ecommerce_specific_features(product_data)
+
     def _extract_ecommerce_specific_features(self, product_data: ProductData) -> dict[str, Any]:
         """Extract e-commerce specific features."""
         features = {}

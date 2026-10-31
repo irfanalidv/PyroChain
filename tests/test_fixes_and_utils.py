@@ -346,3 +346,12 @@ def test_cli_ecommerce_command(tmp_path):
     assert result.exit_code == 0, result.output
     data = json.loads(out.read_text())
     assert data["ecommerce_features"]["attribute_features"]["attr_wireless_bool"] == 1
+
+
+def test_tabular_features_need_no_model(chain):
+    feats = EcommerceFeatureExtractor(chain).extract_tabular_features(
+        _product("p", "shoe", price=250.0, inventory=0)
+    )
+    assert feats["price_features"]["price_category"] == 3
+    assert feats["inventory_features"]["is_in_stock"] is False
+    assert feats["category_features"]["category_encoded"] == stable_bucket("audio")
