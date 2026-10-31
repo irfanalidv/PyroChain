@@ -1,0 +1,9 @@
+product_id,title,description,price,category,brand,color,rating
+hp-01,Wireless Noise Cancelling Headphones,Over-ear headphones with 30-hour battery and noise cancellation,199.99,electronics/audio,Sonora,black,4.6
+hp-02,Bluetooth Over-Ear Headphones,Foldable over-ear headphones with 25-hour battery,129.00,electronics/audio,Sonora,black,4.2
+sp-01,Portable Bluetooth Speaker,Waterproof speaker with deep bass and 12-hour battery,79.50,electronics/audio,Wavelet,blue,4.4
+ts-01,Organic Cotton T-Shirt,Soft crew-neck t-shirt made from organic cotton,24.99,apparel/tops,Fieldline,red,4.5
+ts-02,Classic Cotton Crew Tee,Everyday cotton tee with a relaxed fit,19.99,apparel/tops,Fieldline,red,4.1
+jk-01,Waterproof Hiking Jacket,Breathable rain jacket with sealed seams for hiking,149.00,apparel/outerwear,Ridgeway,green,4.7
+bl-01,High-Speed Kitchen Blender,1200 W blender that crushes ice and makes smoothies,89.00,home/kitchen,Mixa,silver,4.3
+kt-01,Electric Glass Kettle,1.7 litre glass kettle with fast boil and auto shut-off,39.99,home/kitchen,Mixa,silver,4.0

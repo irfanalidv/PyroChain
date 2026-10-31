@@ -180,3 +180,7 @@ outputs/
 *.jpg
 *.jpeg
 *.gif
+
+# Small sample data shipped with the examples
+!examples/assets/
+!examples/assets/*.csv
