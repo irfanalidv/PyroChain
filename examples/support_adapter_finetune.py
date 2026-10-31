@@ -4,6 +4,8 @@ Fine-tune PyroChain's LoRA adapter on your own domain text, then save and reload
 Shows:
 - ``PyroChain.train_adapter``: only the low-rank layers train; the base model stays frozen.
 - Per-epoch training and validation loss, and the number of trainable parameters.
+- The trained adapter changes the embeddings PyroChain extracts (they come from the adapted
+  hidden states).
 - ``save_model`` / ``load_model`` round trip (adapter weights + agent memory), checked by
   comparing embeddings before and after reloading.
 
@@ -31,6 +33,8 @@ def main() -> None:
     lines = [line for line in CORPUS.read_text(encoding="utf-8").splitlines() if line.strip()]
 
     chain = PyroChain(PyroChainConfig(device="cpu", adapter_rank=8))
+    probe = "Where is my refund?"
+    untrained = chain.adapter.get_embeddings(probe)
     out = chain.adapter.train(
         [{"text": line} for line in lines],
         "customer-support language modelling",
@@ -45,8 +49,9 @@ def main() -> None:
             f"  epoch {h['epoch']}: train loss {h['train_loss']:.2f}, val loss {h['val_loss']:.2f}"
         )
 
-    probe = "Where is my refund?"
     before = chain.adapter.get_embeddings(probe)
+    shift = 1 - torch.nn.functional.cosine_similarity(untrained, before).item()
+    print(f"Embedding change from training (1 - cosine): {shift:.4f}")
     with tempfile.TemporaryDirectory() as tmp:
         chain.save_model(tmp)
         saved = sorted(p.relative_to(tmp).as_posix() for p in Path(tmp).rglob("*") if p.is_file())

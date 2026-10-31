@@ -355,3 +355,18 @@ def test_tabular_features_need_no_model(chain):
     assert feats["price_features"]["price_category"] == 3
     assert feats["inventory_features"]["is_in_stock"] is False
     assert feats["category_features"]["category_encoded"] == stable_bucket("audio")
+
+
+def test_trained_adapter_changes_embeddings_untrained_matches_base():
+    adapter = LightweightAdapter(model_name="tiny-gpt2", device=CPU, rank=4)
+    lora = adapter.adapter
+    text = "great headphones battery life"
+    enc = lora.encode_text(text)
+    with torch.no_grad():
+        base = lora.model(**enc).last_hidden_state.mean(dim=1)
+    assert torch.allclose(adapter.get_embeddings(text), base, atol=1e-6)
+
+    adapter.train([{"text": text}] * 4, "lm", epochs=2, learning_rate=1e-2)
+    trained = adapter.get_embeddings(text)
+    assert not torch.allclose(trained, base, atol=1e-4)
+    assert torch.equal(trained, adapter.get_embeddings(text))  # deterministic (eval mode)

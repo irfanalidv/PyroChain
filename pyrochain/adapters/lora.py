@@ -95,16 +95,34 @@ class LoRAAdapter(BaseAdapter):
                 in_features=hidden, out_features=hidden, rank=self.rank, alpha=self.alpha
             )
         self.lora_layers.to(device=self.device, dtype=self.model.dtype)
+        # New modules start in training mode (dropout on); follow the base model's mode so
+        # embeddings after load() are deterministic.
+        self.lora_layers.train(self.model.training)
 
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
         """Forward pass: base-model hidden states plus the low-rank residual adaptations."""
         outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
-        hidden_states = outputs.last_hidden_state
+        return self._adapt(outputs.last_hidden_state)
 
+    def _adapt(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        """Add every LoRA layer's low-rank residual to the base hidden states."""
         adapted_states = hidden_states
         for lora_layer in self.lora_layers.values():
             adapted_states = adapted_states + lora_layer(hidden_states)
         return adapted_states
+
+    def get_embeddings(self, text: str) -> torch.Tensor:
+        """Mean-pooled embedding of ``text`` from the *adapted* hidden states.
+
+        The base class pools the frozen base model's output; using it here meant a trained
+        adapter had no effect on extracted features. Because ``lora_B`` starts at zero, an
+        untrained adapter returns exactly the base-model embedding.
+        """
+        encoding = self.encode_text(text)
+        mask = encoding["attention_mask"].unsqueeze(-1).to(self.model.dtype)
+        with torch.no_grad():
+            hidden = self._adapt(self.model(**encoding).last_hidden_state)
+        return (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1.0)
 
     def train_step(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         """Compute the next-token language-modelling loss for one batch.
