@@ -21,12 +21,10 @@ class BaseProcessor(ABC):
     @abstractmethod
     def process(self, data: dict[str, Any]) -> dict[str, Any]:
         """Process input data."""
-        pass
 
     @abstractmethod
     def get_features(self, data: dict[str, Any]) -> torch.Tensor:
         """Extract features from processed data."""
-        pass
 
     def _normalize_text(self, text: str) -> str:
         """Normalize text input."""

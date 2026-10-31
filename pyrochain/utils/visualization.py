@@ -14,6 +14,8 @@ import torch
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
+from .metrics import ArrayLike, as_numpy
+
 
 class FeatureVisualizer:
     """Visualization utilities for PyroChain features."""
@@ -25,20 +27,19 @@ class FeatureVisualizer:
 
     def plot_feature_distribution(
         self,
-        features: torch.Tensor,
+        features: ArrayLike,
         title: str = "Feature Distribution",
         save_path: str | None = None,
     ) -> None:
         """Plot distribution of feature values."""
-        if isinstance(features, torch.Tensor):
-            features = features.detach().cpu().numpy()
+        features_np = as_numpy(features)
 
         plt.figure(figsize=self.figsize)
 
-        if features.ndim > 1:
-            features = features.flatten()
+        if features_np.ndim > 1:
+            features_np = features_np.flatten()
 
-        plt.hist(features, bins=50, alpha=0.7, edgecolor="black")
+        plt.hist(features_np, bins=50, alpha=0.7, edgecolor="black")
         plt.title(title)
         plt.xlabel("Feature Value")
         plt.ylabel("Frequency")
@@ -77,7 +78,7 @@ class FeatureVisualizer:
 
     def plot_feature_embedding(
         self,
-        features: torch.Tensor,
+        features: ArrayLike,
         labels: list[str] | None = None,
         method: str = "pca",
         n_components: int = 2,
@@ -85,11 +86,10 @@ class FeatureVisualizer:
         save_path: str | None = None,
     ) -> None:
         """Plot feature embeddings in 2D space."""
-        if isinstance(features, torch.Tensor):
-            features = features.detach().cpu().numpy()
+        features_np = as_numpy(features)
 
-        if features.ndim > 2:
-            features = features.reshape(features.shape[0], -1)
+        if features_np.ndim > 2:
+            features_np = features_np.reshape(features_np.shape[0], -1)
 
         # Reduce dimensionality
         if method == "pca":
@@ -99,7 +99,7 @@ class FeatureVisualizer:
         else:
             raise ValueError("Method must be 'pca' or 'tsne'")
 
-        embeddings = reducer.fit_transform(features)
+        embeddings = reducer.fit_transform(features_np)
 
         plt.figure(figsize=self.figsize)
 
@@ -131,21 +131,20 @@ class FeatureVisualizer:
 
     def plot_clustering_results(
         self,
-        features: torch.Tensor,
+        features: ArrayLike,
         cluster_labels: list[int],
         title: str = "Clustering Results",
         save_path: str | None = None,
     ) -> None:
         """Plot clustering results."""
-        if isinstance(features, torch.Tensor):
-            features = features.detach().cpu().numpy()
+        features_np = as_numpy(features)
 
-        if features.ndim > 2:
-            features = features.reshape(features.shape[0], -1)
+        if features_np.ndim > 2:
+            features_np = features_np.reshape(features_np.shape[0], -1)
 
         # Reduce to 2D for visualization
         pca = PCA(n_components=2)
-        embeddings = pca.fit_transform(features)
+        embeddings = pca.fit_transform(features_np)
 
         plt.figure(figsize=self.figsize)
 
@@ -197,7 +196,7 @@ class FeatureVisualizer:
         plt.grid(True, alpha=0.3)
 
         # Add value labels on bars
-        for bar, score in zip(bars, scores):
+        for bar, score in zip(bars, scores, strict=False):
             plt.text(
                 bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + 0.01,
@@ -231,10 +230,10 @@ class FeatureVisualizer:
 
         for metric in metrics:
             values = [h.get(metric, None) for h in history]
-            valid_values = [(e, v) for e, v in zip(epochs, values) if v is not None]
+            valid_values = [(e, v) for e, v in zip(epochs, values, strict=False) if v is not None]
 
             if valid_values:
-                epochs_metric, values_metric = zip(*valid_values)
+                epochs_metric, values_metric = zip(*valid_values, strict=False)
                 plt.plot(epochs_metric, values_metric, label=metric, marker="o")
 
         plt.title(title)
@@ -287,7 +286,7 @@ class FeatureVisualizer:
 
     def create_feature_report(self, features: dict[str, Any], save_path: str | None = None) -> None:
         """Create a comprehensive feature report."""
-        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        _fig, axes = plt.subplots(2, 2, figsize=(15, 12))
 
         # Feature distribution
         if "raw_features" in features and isinstance(features["raw_features"], torch.Tensor):

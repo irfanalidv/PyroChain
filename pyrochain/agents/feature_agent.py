@@ -34,12 +34,18 @@ class FeatureAgent(BaseAgent):
         tools = [
             Tool(
                 name="extract_text_features",
-                description="Extract features from text data including keywords, sentiment, and semantic features",
+                description=(
+                    "Extract features from text data including keywords, sentiment, "
+                    "and semantic features"
+                ),
                 func=self._extract_text_features,
             ),
             Tool(
                 name="extract_image_features",
-                description="Extract features from image data including objects, colors, and visual features",
+                description=(
+                    "Extract features from image data including objects, colors, "
+                    "and visual features"
+                ),
                 func=self._extract_image_features,
             ),
             Tool(

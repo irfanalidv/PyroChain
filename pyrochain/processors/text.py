@@ -76,7 +76,7 @@ class TextProcessor(BaseProcessor):
         ]
 
         for field in text_field_names:
-            if field in data and data[field]:
+            if data.get(field):
                 text_fields[field] = self._normalize_text(data[field])
 
         # Also check for nested text fields
@@ -188,7 +188,7 @@ class TextProcessor(BaseProcessor):
         words = [word for word in words if word not in stop_words and len(word) > 2]
 
         # Count word frequency
-        word_freq = {}
+        word_freq: dict[str, int] = {}
         for word in words:
             word_freq[word] = word_freq.get(word, 0) + 1
 

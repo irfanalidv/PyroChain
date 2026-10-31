@@ -48,7 +48,7 @@ class SequentialToolExecutor:
         self.tools = tools
         self.memory = memory
 
-    def invoke(self, input: str) -> str:  # noqa: A002 - mirrors LangChain's keyword
+    def invoke(self, input: str) -> str:
         lines = [f"Question: {input.strip()}"]
         for tool in self.tools:
             observation = tool.invoke(input)
@@ -64,7 +64,7 @@ class SequentialToolExecutor:
             self.memory.add_message(AIMessage(content=transcript))
         return transcript
 
-    def run(self, input: str) -> str:  # noqa: A002 - backwards-compatible alias
+    def run(self, input: str) -> str:
         return self.invoke(input)
 
 
@@ -129,21 +129,18 @@ class BaseAgent(ABC):
     @abstractmethod
     def _setup_tools(self) -> list[Any]:
         """Setup tools for the agent."""
-        pass
 
     @abstractmethod
     def _setup_agent(self):
         """Setup the agent."""
-        pass
 
     def _setup_agent_executor(self) -> SequentialToolExecutor:
         """Setup the agent executor."""
         return SequentialToolExecutor(tools=self.tools, memory=self.memory)
 
     @abstractmethod
-    def run(self, **kwargs) -> dict[str, Any]:
+    def run(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         """Run the agent."""
-        pass
 
     def save_memory(self, path: str | Path) -> None:
         """Save agent memory as JSON (``memory.json``)."""
@@ -153,8 +150,9 @@ class BaseAgent(ABC):
 
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
-        with open(path / "memory.json", "w", encoding="utf-8") as f:
-            json.dump(messages_to_dict(self.memory.messages), f)
+        (path / "memory.json").write_text(
+            json.dumps(messages_to_dict(self.memory.messages)), encoding="utf-8"
+        )
 
     def load_memory(self, path: str | Path) -> None:
         """Load agent memory saved by :meth:`save_memory`."""
@@ -164,8 +162,7 @@ class BaseAgent(ABC):
 
         memory_file = Path(path) / "memory.json"
         if memory_file.exists():
-            with open(memory_file, encoding="utf-8") as f:
-                messages = messages_from_dict(json.load(f))
+            messages = messages_from_dict(json.loads(memory_file.read_text(encoding="utf-8")))
             self.memory.clear()
             for message in messages:
                 self.memory.add_message(message)
@@ -176,10 +173,7 @@ class BaseAgent(ABC):
 
     def get_memory_summary(self) -> dict[str, Any]:
         """Get summary of agent memory."""
-        if hasattr(self.memory, "chat_memory"):
-            messages = self.memory.chat_memory.messages
-        else:
-            messages = []
+        messages = self.memory.chat_memory.messages if hasattr(self.memory, "chat_memory") else []
 
         return {
             "memory_type": self.memory_type,

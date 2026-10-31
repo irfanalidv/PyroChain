@@ -65,7 +65,6 @@ viz = [
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.0.0",
-    "black>=24.0.0",
     "ruff>=0.6.0",
     "mypy>=1.7.0",
     "build>=1.0.0",
@@ -94,20 +93,19 @@ include = ["pyrochain*"]
 [tool.setuptools.package-data]
 pyrochain = ["py.typed"]
 
-[tool.black]
-line-length = 100
-target-version = ["py310"]
-
 [tool.ruff]
 line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W", "UP", "B"]
-ignore = ["E501", "B008", "B905"]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF", "PTH", "RET", "PIE"]
+ignore = [
+    "RUF022",  # __all__ is grouped by topic on purpose, not sorted
+    "RET504",  # "x = compute(); return x" is kept where it documents what is returned
+]
 
 [tool.ruff.lint.per-file-ignores]
-"examples/*" = ["F841", "E402"]
+"examples/*" = ["E402"]  # examples adjust sys.path / settings before importing
 
 [tool.ruff.lint.isort]
 known-first-party = ["pyrochain"]
@@ -115,7 +113,11 @@ known-first-party = ["pyrochain"]
 [tool.mypy]
 python_version = "3.10"
 ignore_missing_imports = true
+warn_unused_ignores = true
 warn_unused_configs = true
+warn_redundant_casts = true
+check_untyped_defs = true
+no_implicit_optional = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

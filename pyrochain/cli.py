@@ -39,6 +39,16 @@ def _to_jsonable(obj):
     return str(obj)
 
 
+def _load_json(path: str):
+    """Read a JSON input file with a clear error message."""
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise click.BadParameter(f"file not found: {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise click.BadParameter(f"{path} is not valid JSON: {exc}") from exc
+
+
 def _emit(results, output_file):
     payload = json.dumps(_to_jsonable(results), indent=2)
     if output_file:
@@ -51,7 +61,6 @@ def _emit(results, output_file):
 @click.group()
 def main():
     """PyroChain: PyTorch + LangChain for Agentic Feature Engineering"""
-    pass
 
 
 @main.command()
@@ -85,8 +94,7 @@ def extract(
 ):
     """Extract features from input data."""
     # Load input data
-    with open(input_file) as f:
-        data = json.load(f)
+    data = _load_json(input_file)
 
     # Initialize PyroChain
     config = PyroChainConfig(model_name=model, device=device)
@@ -118,8 +126,7 @@ def train(
 ):
     """Train PyroChain adapter on custom data."""
     # Load training data
-    with open(training_file) as f:
-        training_data = json.load(f)
+    training_data = _load_json(training_file)
 
     # Initialize PyroChain
     config = PyroChainConfig(model_name=model, device=device)
@@ -157,8 +164,7 @@ def predict(
 ):
     """Make predictions using a trained model."""
     # Load input data
-    with open(input_file) as f:
-        data = json.load(f)
+    data = _load_json(input_file)
 
     # Initialize PyroChain
     config = PyroChainConfig(model_name=model, device=device)
@@ -183,8 +189,7 @@ def predict(
 def ecommerce(product_file: str, task: str, output_file: str | None, model: str, device: str):
     """Extract features for e-commerce data."""
     # Load product data
-    with open(product_file) as f:
-        product_data = json.load(f)
+    product_data = _load_json(product_file)
 
     # Initialize PyroChain
     config = PyroChainConfig(model_name=model, device=device)

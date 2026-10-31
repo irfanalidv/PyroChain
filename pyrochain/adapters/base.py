@@ -3,6 +3,8 @@ Base adapter class for lightweight LLM fine-tuning.
 """
 
 from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any
 
 import torch
 from transformers import AutoModel, AutoTokenizer
@@ -11,15 +13,15 @@ from transformers import AutoModel, AutoTokenizer
 class BaseAdapter(ABC):
     """Abstract base class for lightweight adapters."""
 
-    def __init__(self, model_name: str, device: torch.device, **kwargs):
+    def __init__(self, model_name: str, device: torch.device, **kwargs: Any):
         """Initialize the adapter."""
         self.model_name = model_name
         self.device = device
-        self.model = None
-        self.tokenizer = None
+        self.model: Any = None  # transformers PreTrainedModel
+        self.tokenizer: Any = None  # transformers tokenizer
         self._load_model()
 
-    def _load_model(self):
+    def _load_model(self) -> None:
         """Load the base model and tokenizer."""
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = AutoModel.from_pretrained(
@@ -34,22 +36,18 @@ class BaseAdapter(ABC):
     @abstractmethod
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
         """Forward pass through the adapter."""
-        pass
 
     @abstractmethod
-    def train_step(self, batch: dict[str, torch.Tensor]) -> dict[str, float]:
-        """Single training step."""
-        pass
+    def train_step(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        """Single training step; returns ``{"loss": tensor}`` for the caller to backpropagate."""
 
     @abstractmethod
-    def save(self, path: str):
+    def save(self, path: str | Path) -> None:
         """Save adapter weights."""
-        pass
 
     @abstractmethod
-    def load(self, path: str):
+    def load(self, path: str | Path) -> None:
         """Load adapter weights."""
-        pass
 
     def encode_text(self, text: str) -> dict[str, torch.Tensor]:
         """Encode text using the tokenizer."""

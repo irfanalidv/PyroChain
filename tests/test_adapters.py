@@ -60,6 +60,7 @@ class TestLightweightAdapter:
         for (k1, v1), (k2, v2) in zip(
             adapter.adapter.lora_layers.state_dict().items(),
             new_adapter.adapter.lora_layers.state_dict().items(),
+            strict=True,
         ):
             assert k1 == k2 and torch.equal(v1, v2)
 

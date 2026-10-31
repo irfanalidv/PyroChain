@@ -75,11 +75,9 @@ class MultimodalProcessor(BaseProcessor):
         self, text_features: torch.Tensor | None, image_features: torch.Tensor | None
     ) -> torch.Tensor:
         """Fuse text and image features."""
-        if text_features is None and image_features is None:
-            # Return zero tensor if no features
-            return torch.zeros(1, 512, device=self.device)
-
         if text_features is None:
+            if image_features is None:
+                return torch.zeros(1, 512, device=self.device)  # no features at all
             return image_features
 
         if image_features is None:
@@ -90,35 +88,32 @@ class MultimodalProcessor(BaseProcessor):
             # Concatenate features
             return torch.cat([text_features, image_features], dim=-1)
 
-        elif self.fusion_method == "add":
+        if self.fusion_method == "add":
             # Add features (requires same dimension)
             if text_features.shape[-1] == image_features.shape[-1]:
                 return text_features + image_features
-            else:
-                # Pad or truncate to match dimensions
-                max_dim = max(text_features.shape[-1], image_features.shape[-1])
-                text_padded = self._pad_or_truncate(text_features, max_dim)
-                image_padded = self._pad_or_truncate(image_features, max_dim)
-                return text_padded + image_padded
+            # Pad or truncate to match dimensions
+            max_dim = max(text_features.shape[-1], image_features.shape[-1])
+            text_padded = self._pad_or_truncate(text_features, max_dim)
+            image_padded = self._pad_or_truncate(image_features, max_dim)
+            return text_padded + image_padded
 
-        elif self.fusion_method == "multiply":
+        if self.fusion_method == "multiply":
             # Element-wise multiplication (requires same dimension)
             if text_features.shape[-1] == image_features.shape[-1]:
                 return text_features * image_features
-            else:
-                # Pad or truncate to match dimensions
-                max_dim = max(text_features.shape[-1], image_features.shape[-1])
-                text_padded = self._pad_or_truncate(text_features, max_dim)
-                image_padded = self._pad_or_truncate(image_features, max_dim)
-                return text_padded * image_padded
+            # Pad or truncate to match dimensions
+            max_dim = max(text_features.shape[-1], image_features.shape[-1])
+            text_padded = self._pad_or_truncate(text_features, max_dim)
+            image_padded = self._pad_or_truncate(image_features, max_dim)
+            return text_padded * image_padded
 
-        elif self.fusion_method == "attention":
+        if self.fusion_method == "attention":
             # Simple attention-based fusion
             return self._attention_fusion(text_features, image_features)
 
-        else:
-            # Default to concatenation
-            return torch.cat([text_features, image_features], dim=-1)
+        # Default to concatenation
+        return torch.cat([text_features, image_features], dim=-1)
 
     def _pad_or_truncate(self, tensor: torch.Tensor, target_dim: int) -> torch.Tensor:
         """Pad or truncate tensor to target dimension."""
@@ -127,13 +122,12 @@ class MultimodalProcessor(BaseProcessor):
         if current_dim < target_dim:
             # Pad with zeros
             padding_size = target_dim - current_dim
-            padding = torch.zeros(tensor.shape[:-1] + (padding_size,), device=tensor.device)
+            padding = torch.zeros((*tensor.shape[:-1], padding_size), device=tensor.device)
             return torch.cat([tensor, padding], dim=-1)
-        elif current_dim > target_dim:
+        if current_dim > target_dim:
             # Truncate
             return tensor[..., :target_dim]
-        else:
-            return tensor
+        return tensor
 
     def _attention_fusion(
         self, text_features: torch.Tensor, image_features: torch.Tensor

@@ -7,10 +7,35 @@ import pytest
 import torch
 from transformers import BertTokenizer, GPT2Config, GPT2Model
 
-WORDS = (
-    "this is a test product great good bad terrible headphones wireless battery life shirt "
-    "cotton organic price review movie text title description extract features for the and"
-).split()
+WORDS = [
+    "this",
+    "is",
+    "a",
+    "test",
+    "product",
+    "great",
+    "good",
+    "bad",
+    "terrible",
+    "headphones",
+    "wireless",
+    "battery",
+    "life",
+    "shirt",
+    "cotton",
+    "organic",
+    "price",
+    "review",
+    "movie",
+    "text",
+    "title",
+    "description",
+    "extract",
+    "features",
+    "for",
+    "the",
+    "and",
+]
 
 HIDDEN = 32
 
@@ -18,7 +43,7 @@ HIDDEN = 32
 @pytest.fixture(scope="session")
 def vocab_file(tmp_path_factory):
     path = tmp_path_factory.mktemp("tok") / "vocab.txt"
-    tokens = ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]"] + sorted(set(WORDS))
+    tokens = ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", *sorted(set(WORDS))]
     tokens += list("abcdefghijklmnopqrstuvwxyz0123456789") + [
         f"##{c}" for c in "abcdefghijklmnopqrstuvwxyz"
     ]

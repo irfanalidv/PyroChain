@@ -23,9 +23,8 @@ class BaseChain(ABC):
         return self.agent.memory
 
     @abstractmethod
-    def run(self, **kwargs) -> dict[str, Any]:
+    def run(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         """Run the chain."""
-        pass
 
     def save_memory(self, path: str | Path):
         """Save chain memory."""
