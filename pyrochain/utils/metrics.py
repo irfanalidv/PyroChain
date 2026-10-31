@@ -15,52 +15,59 @@ from sklearn.metrics import (
     silhouette_score,
 )
 
+ArrayLike = torch.Tensor | np.ndarray
+"""A feature matrix as a PyTorch tensor or NumPy array."""
+
+
+def as_numpy(values: ArrayLike) -> np.ndarray:
+    """Return ``values`` as a NumPy array (tensors are detached and moved to CPU)."""
+    if isinstance(values, torch.Tensor):
+        return values.detach().cpu().numpy()
+    return np.asarray(values)
+
 
 class FeatureMetrics:
     """Metrics for evaluating PyroChain features and models."""
 
     def __init__(self):
         """Initialize the metrics calculator."""
-        pass
 
     def calculate_feature_quality_metrics(
-        self, features: torch.Tensor, ground_truth: torch.Tensor | None = None
+        self, features: ArrayLike, ground_truth: ArrayLike | None = None
     ) -> dict[str, float]:
         """Calculate quality metrics for extracted features."""
-        if isinstance(features, torch.Tensor):
-            features = features.detach().cpu().numpy()
+        features_np = as_numpy(features)
 
         metrics = {}
 
         # Basic statistics
-        metrics["mean"] = float(np.mean(features))
-        metrics["std"] = float(np.std(features))
-        metrics["min"] = float(np.min(features))
-        metrics["max"] = float(np.max(features))
-        metrics["range"] = float(np.max(features) - np.min(features))
+        metrics["mean"] = float(np.mean(features_np))
+        metrics["std"] = float(np.std(features_np))
+        metrics["min"] = float(np.min(features_np))
+        metrics["max"] = float(np.max(features_np))
+        metrics["range"] = float(np.max(features_np) - np.min(features_np))
 
         # Feature diversity
-        metrics["unique_ratio"] = float(len(np.unique(features)) / features.size)
-        metrics["zero_ratio"] = float(np.sum(features == 0) / features.size)
+        metrics["unique_ratio"] = float(len(np.unique(features_np)) / features_np.size)
+        metrics["zero_ratio"] = float(np.sum(features_np == 0) / features_np.size)
 
         # Feature distribution
-        metrics["skewness"] = float(self._calculate_skewness(features))
-        metrics["kurtosis"] = float(self._calculate_kurtosis(features))
+        metrics["skewness"] = float(self._calculate_skewness(features_np))
+        metrics["kurtosis"] = float(self._calculate_kurtosis(features_np))
 
         # Feature stability (if ground truth available)
         if ground_truth is not None:
-            if isinstance(ground_truth, torch.Tensor):
-                ground_truth = ground_truth.detach().cpu().numpy()
+            gt_np = as_numpy(ground_truth)
 
             # Ensure same shape
-            if features.shape != ground_truth.shape:
+            if features_np.shape != gt_np.shape:
                 # Reshape to match
-                min_size = min(features.size, ground_truth.size)
-                features_flat = features.flatten()[:min_size]
-                ground_truth_flat = ground_truth.flatten()[:min_size]
+                min_size = min(features_np.size, gt_np.size)
+                features_flat = features_np.flatten()[:min_size]
+                ground_truth_flat = gt_np.flatten()[:min_size]
             else:
-                features_flat = features.flatten()
-                ground_truth_flat = ground_truth.flatten()
+                features_flat = features_np.flatten()
+                ground_truth_flat = gt_np.flatten()
 
             # Correlation
             correlation = np.corrcoef(features_flat, ground_truth_flat)[0, 1]
@@ -77,30 +84,28 @@ class FeatureMetrics:
         return metrics
 
     def calculate_similarity_metrics(
-        self, features1: torch.Tensor, features2: torch.Tensor
+        self, features1: ArrayLike, features2: ArrayLike
     ) -> dict[str, float]:
         """Calculate similarity metrics between two feature sets."""
-        if isinstance(features1, torch.Tensor):
-            features1 = features1.detach().cpu().numpy()
-        if isinstance(features2, torch.Tensor):
-            features2 = features2.detach().cpu().numpy()
+        features1_np = as_numpy(features1)
+        features2_np = as_numpy(features2)
 
         # Ensure same shape
-        if features1.shape != features2.shape:
+        if features1_np.shape != features2_np.shape:
             # Reshape to match
-            min_size = min(features1.size, features2.size)
-            features1 = features1.flatten()[:min_size]
-            features2 = features2.flatten()[:min_size]
+            min_size = min(features1_np.size, features2_np.size)
+            features1_np = features1_np.flatten()[:min_size]
+            features2_np = features2_np.flatten()[:min_size]
         else:
-            features1 = features1.flatten()
-            features2 = features2.flatten()
+            features1_np = features1_np.flatten()
+            features2_np = features2_np.flatten()
 
         metrics = {}
 
         # Cosine similarity
-        dot_product = np.dot(features1, features2)
-        norm1 = np.linalg.norm(features1)
-        norm2 = np.linalg.norm(features2)
+        dot_product = np.dot(features1_np, features2_np)
+        norm1 = np.linalg.norm(features1_np)
+        norm2 = np.linalg.norm(features2_np)
 
         if norm1 == 0 or norm2 == 0:
             metrics["cosine_similarity"] = 0.0
@@ -108,23 +113,25 @@ class FeatureMetrics:
             metrics["cosine_similarity"] = float(dot_product / (norm1 * norm2))
 
         # Euclidean distance
-        euclidean_dist = np.linalg.norm(features1 - features2)
+        euclidean_dist = np.linalg.norm(features1_np - features2_np)
         metrics["euclidean_distance"] = float(euclidean_dist)
 
         # Manhattan distance
-        manhattan_dist = np.sum(np.abs(features1 - features2))
+        manhattan_dist = np.sum(np.abs(features1_np - features2_np))
         metrics["manhattan_distance"] = float(manhattan_dist)
 
         # Pearson correlation
-        correlation = np.corrcoef(features1, features2)[0, 1]
+        correlation = np.corrcoef(features1_np, features2_np)[0, 1]
         metrics["pearson_correlation"] = float(correlation) if not np.isnan(correlation) else 0.0
 
         # Jaccard similarity (for binary features)
-        if np.all((features1 == 0) | (features1 == 1)) and np.all(
-            (features2 == 0) | (features2 == 1)
+        if np.all((features1_np == 0) | (features1_np == 1)) and np.all(
+            (features2_np == 0) | (features2_np == 1)
         ):
-            intersection = np.sum(features1 & features2)
-            union = np.sum(features1 | features2)
+            # Cast to bool: "&" / "|" are undefined for float arrays (TypeError before)
+            b1, b2 = features1_np.astype(bool), features2_np.astype(bool)
+            intersection = np.sum(b1 & b2)
+            union = np.sum(b1 | b2)
             metrics["jaccard_similarity"] = float(intersection / union) if union > 0 else 0.0
 
         return metrics
@@ -159,20 +166,19 @@ class FeatureMetrics:
         return metrics
 
     def calculate_clustering_metrics(
-        self, features: torch.Tensor, cluster_labels: list[int]
+        self, features: ArrayLike, cluster_labels: list[int]
     ) -> dict[str, float]:
         """Calculate metrics for clustering results."""
-        if isinstance(features, torch.Tensor):
-            features = features.detach().cpu().numpy()
+        features_np = as_numpy(features)
 
-        if features.ndim > 2:
-            features = features.reshape(features.shape[0], -1)
+        if features_np.ndim > 2:
+            features_np = features_np.reshape(features_np.shape[0], -1)
 
         metrics = {}
 
         # Silhouette score
         if len(set(cluster_labels)) > 1:
-            silhouette = silhouette_score(features, cluster_labels)
+            silhouette = silhouette_score(features_np, cluster_labels)
             metrics["silhouette_score"] = float(silhouette)
         else:
             metrics["silhouette_score"] = 0.0

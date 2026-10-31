@@ -6,7 +6,9 @@ for e-commerce applications like product recommendation,
 search optimization, and customer behavior analysis.
 """
 
+import zlib
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -28,6 +30,27 @@ class ProductData:
     attributes: dict[str, Any]
     reviews: list[dict[str, Any]]
     inventory: int
+
+
+def stable_bucket(value: str, buckets: int = 1000) -> int:
+    """Deterministic hash bucket for a string (CRC-32).
+
+    Python's built-in ``hash()`` of a ``str`` is randomised per process (PYTHONHASHSEED), so
+    features built with it change between runs and cannot be reused by a trained model.
+    """
+    return zlib.crc32(value.encode("utf-8")) % buckets
+
+
+def first_record(result: dict[str, Any]) -> dict[str, Any]:
+    """Return the per-sample feature dict from a ``PyroChain.extract_features`` result.
+
+    Accepts either the full result (``{"features": [...], "metadata": ...}``) or a single
+    feature dict, so callers can pass whichever they have.
+    """
+    records = result.get("features")
+    if isinstance(records, list) and records and isinstance(records[0], dict):
+        return records[0]
+    return result
 
 
 class EcommerceFeatureExtractor:
@@ -85,8 +108,13 @@ class EcommerceFeatureExtractor:
         return combined_features
 
     def _prepare_product_data(self, product_data: ProductData) -> dict[str, Any]:
-        """Prepare product data for PyroChain processing."""
-        return {
+        """Prepare product data for PyroChain processing.
+
+        The first usable image (a PIL image, or a path to an existing local file) is passed
+        as ``image`` so the image processor sees it; ``images`` itself is a list and was
+        previously ignored.
+        """
+        data = {
             "text": f"{product_data.title} {product_data.description}",
             "title": product_data.title,
             "description": product_data.description,
@@ -97,12 +125,31 @@ class EcommerceFeatureExtractor:
             "attributes": product_data.attributes,
             "reviews": product_data.reviews,
         }
+        image = self._first_image(product_data.images)
+        if image is not None:
+            data["image"] = image
+        return data
+
+    @staticmethod
+    def _first_image(images: list[str | Image.Image]) -> Image.Image | None:
+        for item in images or []:
+            if isinstance(item, Image.Image):
+                return item
+            if isinstance(item, str) and Path(item).is_file():
+                with Image.open(item) as img:
+                    return img.convert("RGB")
+        return None
 
     def _create_task_description(self, task_type: str) -> str:
         """Create task-specific description."""
         task_descriptions = {
-            "recommendation": "Extract features for product recommendation system focusing on user preferences and product similarity",
-            "search": "Extract features for product search ranking focusing on relevance and popularity",
+            "recommendation": (
+                "Extract features for product recommendation system focusing on user "
+                "preferences and product similarity"
+            ),
+            "search": (
+                "Extract features for product search ranking focusing on relevance and popularity"
+            ),
             "classification": "Extract features for product categorization and classification",
             "pricing": "Extract features for price prediction and optimization",
             "inventory": "Extract features for inventory management and demand forecasting",
@@ -147,14 +194,13 @@ class EcommerceFeatureExtractor:
         """Categorize price into buckets."""
         if price < 10:
             return 0  # Low
-        elif price < 50:
+        if price < 50:
             return 1  # Medium-low
-        elif price < 200:
+        if price < 200:
             return 2  # Medium
-        elif price < 500:
+        if price < 500:
             return 3  # Medium-high
-        else:
-            return 4  # High
+        return 4  # High
 
     def _extract_category_features(self, category: str) -> dict[str, Any]:
         """Extract category-based features."""
@@ -166,7 +212,7 @@ class EcommerceFeatureExtractor:
             "category_depth": len(category_hierarchy),
             "main_category": category_hierarchy[0],
             "sub_category": category_hierarchy[-1] if len(category_hierarchy) > 1 else None,
-            "category_encoded": hash(category) % 1000,  # Simple hash encoding
+            "category_encoded": stable_bucket(category),
         }
 
     def _extract_brand_features(self, brand: str) -> dict[str, Any]:
@@ -174,7 +220,7 @@ class EcommerceFeatureExtractor:
         return {
             "brand": brand,
             "brand_length": len(brand),
-            "brand_encoded": hash(brand) % 1000,  # Simple hash encoding
+            "brand_encoded": stable_bucket(brand),
             "is_premium": self._is_premium_brand(brand),
         }
 
@@ -241,16 +287,17 @@ class EcommerceFeatureExtractor:
 
     def _extract_attribute_features(self, attributes: dict[str, Any]) -> dict[str, Any]:
         """Extract features from product attributes."""
-        features = {}
+        features: dict[str, Any] = {}
 
         for key, value in attributes.items():
-            if isinstance(value, (int, float)):
+            # bool is checked first: it is a subclass of int, so the bool branch was unreachable
+            if isinstance(value, bool):
+                features[f"attr_{key}_bool"] = int(value)
+            elif isinstance(value, (int, float)):
                 features[f"attr_{key}_numeric"] = value
             elif isinstance(value, str):
                 features[f"attr_{key}_text"] = value
                 features[f"attr_{key}_length"] = len(value)
-            elif isinstance(value, bool):
-                features[f"attr_{key}_bool"] = int(value)
 
         features["num_attributes"] = len(attributes)
 
@@ -269,12 +316,11 @@ class EcommerceFeatureExtractor:
         """Categorize inventory level."""
         if inventory == 0:
             return 0  # Out of stock
-        elif inventory < 10:
+        if inventory < 10:
             return 1  # Low stock
-        elif inventory < 100:
+        if inventory < 100:
             return 2  # Medium stock
-        else:
-            return 3  # High stock
+        return 3  # High stock
 
 
 class ProductAnalyzer:
@@ -331,16 +377,22 @@ class ProductAnalyzer:
 
         similarities = {}
 
+        # Tensors live in the per-sample record (result["features"][0]); looking for them at
+        # the top level meant text and image similarity were never computed.
+        record1, record2 = first_record(features1), first_record(features2)
+
         # Text similarity
-        if "text_features" in features1 and "text_features" in features2:
+        if isinstance(record1.get("text_features"), torch.Tensor) and isinstance(
+            record2.get("text_features"), torch.Tensor
+        ):
             similarities["text"] = self._cosine_similarity(
-                features1["text_features"], features2["text_features"]
+                record1["text_features"], record2["text_features"]
             )
 
-        # Image similarity
-        if "image_features" in features1 and "image_features" in features2:
+        # Image similarity (only when both products have an image)
+        if "image" in self._modalities(record1) and "image" in self._modalities(record2):
             similarities["image"] = self._cosine_similarity(
-                features1["image_features"], features2["image_features"]
+                record1["image_features"], record2["image_features"]
             )
 
         # Price similarity
@@ -369,10 +421,15 @@ class ProductAnalyzer:
 
         # Calculate weighted overall similarity
         overall_similarity = sum(
-            similarities.get(feature, 0) * weights.get(feature, 0) for feature in weights.keys()
+            similarities.get(feature, 0) * weights.get(feature, 0) for feature in weights
         )
 
         return {"overall": overall_similarity, "features": similarities}
+
+    @staticmethod
+    def _modalities(record: dict[str, Any]) -> list[str]:
+        metadata = record.get("metadata")
+        return list(metadata.get("modalities") or []) if isinstance(metadata, dict) else []
 
     def _cosine_similarity(self, tensor1: torch.Tensor, tensor2: torch.Tensor) -> float:
         """Calculate cosine similarity between tensors."""
@@ -429,7 +486,7 @@ class ProductAnalyzer:
         self, target_product: ProductData, product_catalog: list[ProductData], top_k: int = 5
     ) -> list[dict[str, Any]]:
         """Find similar products in a catalog."""
-        similarities = []
+        similarities: list[dict[str, Any]] = []
 
         for product in product_catalog:
             if product.product_id != target_product.product_id:
@@ -450,29 +507,33 @@ class ProductAnalyzer:
         product_ids = []
 
         for product in products:
-            features = self.feature_extractor.extract_product_features(product)
-            if "raw_features" in features and isinstance(features["raw_features"], torch.Tensor):
-                features_list.append(features["raw_features"].flatten().cpu().numpy())
+            record = first_record(self.feature_extractor.extract_product_features(product))
+            raw = record.get("raw_features")
+            if isinstance(raw, torch.Tensor):
+                features_list.append(raw.detach().flatten().cpu().numpy())
                 product_ids.append(product.product_id)
 
         if not features_list:
             return {"clusters": [], "error": "No valid features found"}
+        if n_clusters > len(features_list):
+            raise ValueError(
+                f"n_clusters={n_clusters} is larger than the number of products "
+                f"({len(features_list)})"
+            )
 
         # Perform clustering
         features_array = np.array(features_list)
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
         cluster_labels = kmeans.fit_predict(features_array)
 
         # Organize results
-        clusters = {}
-        for product_id, label in zip(product_ids, cluster_labels):
-            if label not in clusters:
-                clusters[label] = []
-            clusters[label].append(product_id)
+        clusters: dict[int, list[str]] = {}
+        for product_id, label in zip(product_ids, cluster_labels, strict=True):
+            clusters.setdefault(int(label), []).append(product_id)
 
         return {
             "clusters": clusters,
             "cluster_centers": kmeans.cluster_centers_.tolist(),
-            "inertia": kmeans.inertia_,
+            "inertia": float(kmeans.inertia_),
             "n_clusters": n_clusters,
         }

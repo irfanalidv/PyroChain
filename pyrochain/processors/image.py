@@ -65,9 +65,7 @@ class ImageProcessor(BaseProcessor):
 
         return processed
 
-    def _extract_image_fields(
-        self, data: dict[str, Any]
-    ) -> dict[str, Image.Image | np.ndarray | torch.Tensor]:
+    def _extract_image_fields(self, data: dict[str, Any]) -> dict[str, Image.Image]:
         """Extract image fields from data."""
         image_fields = {}
 
@@ -180,7 +178,6 @@ class ImageProcessor(BaseProcessor):
         all_features = []
 
         for image_data in processed_images.values():
-
             # Extract features (simplified - in practice would use a trained model)
             # For now, we'll use the basic features and create a feature vector
             basic_features = image_data["basic_features"]
@@ -266,10 +263,12 @@ class ImageProcessor(BaseProcessor):
         self, image: Image.Image | np.ndarray | torch.Tensor, n_colors: int = 5
     ) -> list[dict[str, Any]]:
         """Extract dominant colors from image."""
-        pil_image = self._validate_image(image)
+        # RGB first: grayscale (2-D) and RGBA (4-channel) arrays broke the reshape below
+        pil_image = self._validate_image(image).convert("RGB")
 
         # Resize image for faster processing
-        pil_image = pil_image.resize((150, 150))
+        # NEAREST keeps real pixel colours (smooth resampling invents blended edge colours)
+        pil_image = pil_image.resize((150, 150), Image.Resampling.NEAREST)
         img_array = np.array(pil_image)
 
         # Reshape image to be a list of pixels
@@ -278,17 +277,20 @@ class ImageProcessor(BaseProcessor):
         # Simple k-means clustering for color extraction
         from sklearn.cluster import KMeans
 
+        n_colors = max(1, min(n_colors, len(np.unique(pixels, axis=0))))
         kmeans = KMeans(n_clusters=n_colors, random_state=42, n_init=10)
         kmeans.fit(pixels)
 
-        colors = []
+        colors: list[dict[str, Any]] = []
         for i, color in enumerate(kmeans.cluster_centers_):
+            r, g, b = (round(float(c)) for c in color)  # centers are floats; ":02x" needs ints
             colors.append(
                 {
-                    "rgb": color.astype(int).tolist(),
-                    "hex": f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}",
+                    "rgb": [r, g, b],
+                    "hex": f"#{r:02x}{g:02x}{b:02x}",
                     "percentage": float(np.sum(kmeans.labels_ == i) / len(pixels)),
                 }
             )
 
+        colors.sort(key=lambda c: c["percentage"], reverse=True)
         return colors

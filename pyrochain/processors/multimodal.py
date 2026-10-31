@@ -225,7 +225,9 @@ class MultimodalProcessor(BaseProcessor):
         structured_features = self.extract_structured_features(data)
 
         summary = {
-            "modalities": structured_features["metadata"]["modalities"],
+            # "metadata" holds processing metadata; modalities live under multimodal_features
+            # (reading them from "metadata" raised KeyError on every call)
+            "modalities": structured_features["multimodal_features"]["modalities"],
             "text_summary": {
                 "num_text_fields": len(structured_features["text_features"]),
                 "total_text_length": sum(

@@ -25,6 +25,19 @@ class FeatureVisualizer:
         self.figsize = figsize
         plt.style.use("seaborn-v0_8")
 
+    @staticmethod
+    def _finish(save_path: str | None) -> None:
+        """Save and close the current figure, or show it when no path is given.
+
+        Figures used to be shown (blocking in scripts) even after saving and were never
+        closed, so batch report generation leaked one figure per plot.
+        """
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
+
     def plot_feature_distribution(
         self,
         features: ArrayLike,
@@ -45,9 +58,7 @@ class FeatureVisualizer:
         plt.ylabel("Frequency")
         plt.grid(True, alpha=0.3)
 
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        plt.show()
+        self._finish(save_path)
 
     def plot_similarity_matrix(
         self,
@@ -72,9 +83,7 @@ class FeatureVisualizer:
         plt.title(title)
         plt.tight_layout()
 
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        plt.show()
+        self._finish(save_path)
 
     def plot_feature_embedding(
         self,
@@ -125,9 +134,7 @@ class FeatureVisualizer:
         plt.ylabel(f"{method.upper()} Component 2")
         plt.grid(True, alpha=0.3)
 
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        plt.show()
+        self._finish(save_path)
 
     def plot_clustering_results(
         self,
@@ -167,9 +174,7 @@ class FeatureVisualizer:
         plt.legend()
         plt.grid(True, alpha=0.3)
 
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        plt.show()
+        self._finish(save_path)
 
     def plot_feature_importance(
         self,
@@ -207,9 +212,7 @@ class FeatureVisualizer:
 
         plt.tight_layout()
 
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        plt.show()
+        self._finish(save_path)
 
     def plot_training_history(
         self,
@@ -242,9 +245,7 @@ class FeatureVisualizer:
         plt.legend()
         plt.grid(True, alpha=0.3)
 
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        plt.show()
+        self._finish(save_path)
 
     def plot_validation_metrics(
         self,
@@ -280,9 +281,7 @@ class FeatureVisualizer:
         plt.suptitle(title)
         plt.tight_layout()
 
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        plt.show()
+        self._finish(save_path)
 
     def create_feature_report(self, features: dict[str, Any], save_path: str | None = None) -> None:
         """Create a comprehensive feature report."""
@@ -332,6 +331,4 @@ class FeatureVisualizer:
 
         plt.tight_layout()
 
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        plt.show()
+        self._finish(save_path)
