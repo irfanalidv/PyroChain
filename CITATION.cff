@@ -5,7 +5,7 @@ abstract: "PyTorch + LangChain for agentic multimodal feature engineering with L
 authors:
   - family-names: Ali
     given-names: Irfan
-version: "0.2.0"
+version: "0.3.0"
 date-released: "2026-10-31"
 license: MIT
 repository-code: "https://github.com/irfanalidv/PyroChain"

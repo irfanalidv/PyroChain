@@ -10,7 +10,7 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("pyrochain")
 except PackageNotFoundError:  # running from a source checkout without installation
-    __version__ = "0.2.0"
+    __version__ = "0.3.0"
 __author__ = "PyroChain Team"
 
 from .adapters import LightweightAdapter, LoRAAdapter

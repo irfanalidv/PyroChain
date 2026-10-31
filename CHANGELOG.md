@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-31
+
+### Fixed
+- Text embeddings ignored the LoRA adapter (`LoRAAdapter` used the base model's pooled output),
+  so `train_adapter()` never changed extracted features. Embeddings now come from the adapted
+  hidden states; an untrained adapter still returns the base-model embedding.
+- Validation credited every record with "text and image features present" (the keys always
+  exist), so empty records passed. Scores now depend on detected modalities and non-zero
+  features: text-only 0.91, text + image 1.0, empty records fail. Refined features are
+  re-validated and marked `refined=True`; `ValidationChain` feedback now inspects the validated
+  features instead of a key that never existed.
+- `ProductAnalyzer` never computed text or image similarity and `cluster_products` always
+  returned "No valid features found" (it read tensors from the wrong level of the result).
+- `category_encoded` / `brand_encoded` used Python's per-process randomised `hash()`; they now
+  use a stable CRC-32 bucket (`stable_bucket()`). Boolean attributes were encoded as numbers.
+- `ImageProcessor.extract_colors` crashed on every call and on grayscale / RGBA images.
+- `MultimodalProcessor.get_feature_summary` raised `KeyError`.
+- `FeatureMetrics` Jaccard similarity raised `TypeError` on float arrays.
+- Adapter training on a dataset too small for the validation split trained on nothing; empty
+  or text-less data now raises `ValueError`. `LoRAAdapter.load()` silently ignored a missing
+  weights file (now `FileNotFoundError`), and reloaded layers ran with dropout on.
+- `FeatureVisualizer` showed (blocking) after saving and never closed figures.
+- CLI input files that are missing or not JSON give a usage error instead of a traceback.
+
+### Added
+- `EcommerceFeatureExtractor.extract_tabular_features()`; `ProductData.images` are used (first
+  PIL image or local file path).
+- `LightweightAdapter.train(seed=...)` for reproducible splits (no global RNG use).
+- Four examples with sample data: review sentiment classifier, catalog similarity and
+  clustering, listing feature matrix, adapter fine-tuning.
+- CodeQL workflow, pre-commit config, mypy and an 85% coverage gate in CI.
+
+### Changed
+- Training progress is logged (`logging`) instead of printed; progress bars hide on non-TTY.
+- Formatting moved from black to `ruff format`; ruff rules broadened; mypy runs with
+  `check_untyped_defs`. Test coverage 63% -> 89%.
+- README rewritten: architecture diagram, design decisions, configuration and API tables,
+  references. Removed `examples/main_example.py`, which did not use PyroChain.
+
 ## [0.2.0] - 2026-10-31
 
 ### Fixed
